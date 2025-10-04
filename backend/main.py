@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 from auth_service import verify_token
 from gemini_service import GeminiService
 from agentuity_client import trigger_simulation_workflow
+from ml_service import MLPredictionService
 
 # Load environment variables
 load_dotenv()
@@ -21,14 +22,17 @@ load_dotenv()
 # Initialize FastAPI app
 app = FastAPI(
     title="SimCity AI API",
-    description="Urban simulation and traffic flow digital twin",
+    description="Urban simulation and traffic flow digital twin with ML predictions",
     version="1.0.0"
 )
 
-# CORS Configuration
+# CORS Configuration - Allow file:// URLs and localhost
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
+cors_origins.append("null")  # Allow file:// protocol for local HTML files
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:3000").split(","),
+    allow_origins=["*"],  # Allow all origins for development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,6 +43,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # Initialize services
 gemini_service = GeminiService()
+ml_service = MLPredictionService()
 
 
 # Pydantic models
@@ -186,6 +191,76 @@ async def get_user_simulations(token: str = Depends(oauth2_scheme)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid authentication credentials: {str(e)}",
+        )
+
+
+# ===== ML PREDICTION ENDPOINTS =====
+
+@app.post("/api/predict")
+async def predict_traffic(
+    hour: Optional[int] = None,
+    day_of_week: Optional[int] = None,
+    num_lanes: int = 3,
+    road_capacity: int = 2000,
+    current_vehicle_count: int = 1000,
+    weather_condition: int = 0,
+    is_holiday: bool = False,
+    road_closure: bool = False,
+    speed_limit: int = 55
+):
+    """
+    ML-based traffic prediction endpoint
+    
+    Example:
+    POST /api/predict?hour=8&current_vehicle_count=1500&road_closure=true
+    """
+    try:
+        prediction = ml_service.predict_traffic(
+            hour=hour,
+            day_of_week=day_of_week,
+            num_lanes=num_lanes,
+            road_capacity=road_capacity,
+            current_vehicle_count=current_vehicle_count,
+            weather_condition=weather_condition,
+            is_holiday=is_holiday,
+            road_closure=road_closure,
+            speed_limit=speed_limit
+        )
+        return prediction
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction error: {str(e)}"
+        )
+
+
+class ScenarioComparison(BaseModel):
+    baseline: dict
+    modified: dict
+
+
+@app.post("/api/compare")
+async def compare_scenarios(comparison: ScenarioComparison):
+    """
+    Compare two traffic scenarios
+    
+    Example:
+    POST /api/compare
+    {
+      "baseline": {"hour": 8, "road_closure": false},
+      "modified": {"hour": 8, "road_closure": true}
+    }
+    """
+    try:
+        result = ml_service.compare_scenarios(
+            baseline_params=comparison.baseline,
+            modified_params=comparison.modified
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Comparison error: {str(e)}"
         )
 
 
