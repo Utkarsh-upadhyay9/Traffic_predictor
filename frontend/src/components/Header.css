@@ -1,0 +1,63 @@
+.header {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 20px 40px;
+}
+
+.header-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  font-size: 32px;
+}
+
+.logo h1 {
+  color: white;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.tagline {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  flex: 1;
+}
+
+.tech-badges {
+  display: flex;
+  gap: 10px;
+}
+
+.badge {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .tech-badges {
+    flex-wrap: wrap;
+  }
+}

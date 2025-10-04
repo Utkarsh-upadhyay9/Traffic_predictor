@@ -1,0 +1,62 @@
+.App {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.main-container {
+  display: flex;
+  height: calc(100vh - 80px);
+  padding: 20px;
+  gap: 20px;
+}
+
+.left-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 450px;
+  overflow-y: auto;
+}
+
+.right-panel {
+  flex: 2;
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+/* Scrollbar styling */
+.left-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.left-panel::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.1);
+  border-radius: 10px;
+}
+
+.left-panel::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.3);
+  border-radius: 10px;
+}
+
+.left-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.5);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .main-container {
+    flex-direction: column;
+  }
+  
+  .left-panel {
+    max-width: 100%;
+  }
+  
+  .right-panel {
+    min-height: 400px;
+  }
+}
