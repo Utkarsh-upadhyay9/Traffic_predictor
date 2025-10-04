@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile.backend
+      platforms:
+        - linux/arm64
+    container_name: simcity-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=False
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - AUTH0_DOMAIN=${AUTH0_DOMAIN}
+      - AUTH0_API_AUDIENCE=${AUTH0_API_AUDIENCE}
+      - AUTH0_ISSUER=${AUTH0_ISSUER}
+      - AGENTUITY_API_KEY=${AGENTUITY_API_KEY}
+      - AGENTUITY_WEBHOOK_URL=${AGENTUITY_WEBHOOK_URL}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - ELEVENLABS_VOICE_ID=${ELEVENLABS_VOICE_ID}
+      - MATLAB_SERVICE_URL=http://matlab:8001
+    volumes:
+      - ../backend:/app
+      - backend-cache:/app/osm_cache
+    networks:
+      - simcity-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # MATLAB Service (optional - requires MATLAB license)
+  # matlab:
+  #   build:
+  #     context: ../matlab
+  #     dockerfile: ../docker/Dockerfile.matlab
+  #   container_name: simcity-matlab
+  #   ports:
+  #     - "8001:8001"
+  #   networks:
+  #     - simcity-network
+  #   restart: unless-stopped
+
+networks:
+  simcity-network:
+    driver: bridge
+
+volumes:
+  backend-cache:
