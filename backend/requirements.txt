@@ -19,5 +19,6 @@ pandas==2.1.4
 scikit-learn==1.3.2
 torch==2.1.2
 joblib==1.3.2
+holidays==0.35
 # MATLAB Engine API - Install separately from MATLAB installation
 # See: https://www.mathworks.com/help/matlab/matlab_external/install-the-matlab-engine-for-python.html
