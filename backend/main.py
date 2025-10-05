@@ -20,7 +20,6 @@ from location_prediction_service import get_location_service
 from calendar_service import get_calendar_service
 from distance_service import get_distance_service
 from datetime import datetime, timedelta
-from simple_api import router as simple_api_router
 
 # Load environment variables
 load_dotenv()
@@ -58,9 +57,6 @@ distance_service = get_distance_service()
 print("\n📅 Fetching holidays for next 30 days...")
 holidays = calendar_service.fetch_us_holidays(30)
 print(f"✅ Loaded {len(holidays)} holidays/events\n")
-
-# Include simplified API router
-app.include_router(simple_api_router)
 
 
 # Pydantic models
