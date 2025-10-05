@@ -728,21 +728,9 @@
                 </div>
 
                 <div class="metric-card">
-                    <div class="metric-label">Baseline Time</div>
-                    <div class="metric-value" id="baselineTime">--</div>
-                    <div class="metric-unit">minutes</div>
-                </div>
-
-                <div class="metric-card">
-                    <div class="metric-label">With Traffic</div>
+                    <div class="metric-label">Travel Time</div>
                     <div class="metric-value" id="travelTime">--</div>
                     <div class="metric-unit">minutes</div>
-                </div>
-
-                <div class="metric-card">
-                    <div class="metric-label">Vehicle Count</div>
-                    <div class="metric-value" id="vehicleCount">--</div>
-                    <div class="metric-unit">vehicles</div>
                 </div>
 
                 <div class="metric-card" id="congestionCard">
@@ -1070,7 +1058,7 @@
         let trafficMarkers = [];
         
         // Function to add traffic heatmap to map
-        function updateTrafficHeatmap(congestionLevel, travelTime, vehicleCount) {
+        function updateTrafficHeatmap(congestionLevel, travelTime) {
             // Clear existing markers
             trafficMarkers.forEach(marker => marker.remove());
             trafficMarkers = [];
@@ -1239,9 +1227,7 @@
                 document.getElementById('distanceUnit').textContent = distanceUnit;
                 document.getElementById('avgSpeed').textContent = avgSpeed.toFixed(0);
                 document.getElementById('speedUnit').textContent = speedUnit;
-                document.getElementById('baselineTime').textContent = prediction.baseline_travel_time_min.toFixed(1);
                 document.getElementById('travelTime').textContent = prediction.adjusted_travel_time_min.toFixed(1);
-                document.getElementById('vehicleCount').textContent = Math.round(prediction.vehicle_count).toLocaleString();
                 document.getElementById('confidence').textContent = prediction.confidence.toUpperCase();
                 
                 // Update congestion level card with color indicators
@@ -1320,7 +1306,7 @@
                 document.getElementById('results').classList.add('show');
                 
                 // Update map with traffic heatmap
-                updateTrafficHeatmap(congestion, prediction.travel_time_min, prediction.vehicle_count);
+                updateTrafficHeatmap(congestion, prediction.travel_time_min);
                 
                 console.log('Prediction completed:', prediction);
                 
