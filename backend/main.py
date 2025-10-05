@@ -1,6 +1,14 @@
 """
 SimCity AI - Main FastAPI Application
-Backend API for urban simulation digital twin
+B# OAuth2 scheme for Auth0
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# Initialize services
+# gemini_service = GeminiService()  # Commented out - not needed
+# ml_service = MLPredictionService()  # Commented out - not needed
+location_service = get_location_service()
+calendar_service = get_calendar_service()
+distance_service = get_distance_service()I for urban simulation digital twin
 """
 
 from fastapi import FastAPI, Depends, HTTPException, status
@@ -12,10 +20,10 @@ from typing import Optional
 import os
 from dotenv import load_dotenv
 
-from auth_service import verify_token
-from gemini_service import GeminiService
-from agentuity_client import trigger_simulation_workflow
-from ml_service import MLPredictionService
+# from auth_service import verify_token  # Commented out - not needed for basic traffic prediction
+# from gemini_service import GeminiService  # Commented out - not needed for basic traffic prediction
+# from agentuity_client import trigger_simulation_workflow  # Commented out - not needed for basic traffic prediction
+# from ml_service import MLPredictionService  # Not used in this file
 from location_prediction_service import get_location_service
 from calendar_service import get_calendar_service
 from distance_service import get_distance_service
@@ -46,9 +54,9 @@ app.add_middleware(
 # OAuth2 scheme for Auth0
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# Initialize services
-gemini_service = GeminiService()
-ml_service = MLPredictionService()
+# Initialize services (commented out Auth/Gemini services - not needed for basic traffic prediction)
+# gemini_service = GeminiService()
+# ml_service = MLPredictionService()
 location_service = get_location_service()
 calendar_service = get_calendar_service()
 distance_service = get_distance_service()
@@ -483,6 +491,16 @@ async def check_holiday(date: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Holiday check error: {str(e)}"
         )
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for monitoring"""
+    return {
+        "status": "healthy",
+        "service": "traffic-predictor-api",
+        "version": "4.1"
+    }
 
 
 if __name__ == "__main__":
