@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SimCity AI - Traffic Prediction</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>SimCity AI - Traffic Prediction v3.3</title>
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js"></script>
     <style>
@@ -416,6 +419,90 @@
             font-weight: 500;
         }
 
+        /* Congestion Level Styling */
+        #congestionCard {
+            border: 2px solid rgba(99, 102, 241, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #congestionCard::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            opacity: 0.1;
+            transition: all 0.3s ease;
+        }
+
+        #congestionCard.congestion-low::before {
+            background: linear-gradient(135deg, #10b981, #34d399);
+        }
+
+        #congestionCard.congestion-medium::before {
+            background: linear-gradient(135deg, #f59e0b, #fbbf24);
+        }
+
+        #congestionCard.congestion-high::before {
+            background: linear-gradient(135deg, #ef4444, #f87171);
+        }
+
+        #congestionCard.congestion-low {
+            border-color: rgba(16, 185, 129, 0.5);
+        }
+
+        #congestionCard.congestion-medium {
+            border-color: rgba(245, 158, 11, 0.5);
+        }
+
+        #congestionCard.congestion-high {
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        #congestionLevel {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #congestionCard.congestion-low #congestionLevel {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #congestionCard.congestion-medium #congestionLevel {
+            background: linear-gradient(135deg, #f59e0b, #fbbf24);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #congestionCard.congestion-high #congestionLevel {
+            background: linear-gradient(135deg, #ef4444, #f87171);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #congestionStatus {
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        #congestionCard.congestion-low #congestionStatus {
+            color: #10b981;
+        }
+
+        #congestionCard.congestion-medium #congestionStatus {
+            color: #f59e0b;
+        }
+
+        #congestionCard.congestion-high #congestionStatus {
+            color: #ef4444;
+        }
+
         .congestion-bar {
             margin-top: 16px;
             padding: 18px;
@@ -656,6 +743,12 @@
                     <div class="metric-label">Vehicle Count</div>
                     <div class="metric-value" id="vehicleCount">--</div>
                     <div class="metric-unit">vehicles</div>
+                </div>
+
+                <div class="metric-card" id="congestionCard">
+                    <div class="metric-label">Congestion Level</div>
+                    <div class="metric-value" id="congestionLevel">--</div>
+                    <div class="metric-unit" id="congestionStatus">--</div>
                 </div>
 
                 <div class="metric-card">
@@ -1151,6 +1244,35 @@
                 document.getElementById('vehicleCount').textContent = Math.round(prediction.vehicle_count).toLocaleString();
                 document.getElementById('confidence').textContent = prediction.confidence.toUpperCase();
                 
+                // Update congestion level card with color indicators
+                const congestionLevel = prediction.congestion_level;
+                console.log('Congestion Level from API:', congestionLevel);
+                const congestionPercent = (congestionLevel * 100).toFixed(0);
+                const congestionCard = document.getElementById('congestionCard');
+                
+                console.log('Updating congestion card with:', congestionPercent + '%');
+                
+                // Update congestion value
+                document.getElementById('congestionLevel').textContent = congestionPercent + '%';
+                
+                // Remove existing congestion classes
+                congestionCard.classList.remove('congestion-low', 'congestion-medium', 'congestion-high');
+                
+                // Add appropriate class and status text based on congestion level
+                if (congestionLevel < 0.4) {
+                    congestionCard.classList.add('congestion-low');
+                    document.getElementById('congestionStatus').textContent = 'Light Traffic';
+                    console.log('Applied: Light Traffic (Green)');
+                } else if (congestionLevel < 0.7) {
+                    congestionCard.classList.add('congestion-medium');
+                    document.getElementById('congestionStatus').textContent = 'Moderate Traffic';
+                    console.log('Applied: Moderate Traffic (Yellow)');
+                } else {
+                    congestionCard.classList.add('congestion-high');
+                    document.getElementById('congestionStatus').textContent = 'Heavy Traffic';
+                    console.log('Applied: Heavy Traffic (Red)');
+                }
+                
                 // Update model version
                 document.getElementById('modelVersion').textContent = `Model v${data.model_version}`;
                 
@@ -1177,10 +1299,10 @@
                 
                 // Update congestion bar
                 const congestion = prediction.congestion_level;
-                const congestionPercent = congestion * 100;
+                const congestionBarPercent = congestion * 100;
                 const bar = document.getElementById('congestionBar');
-                bar.style.width = congestionPercent + '%';
-                bar.textContent = congestionPercent.toFixed(1) + '%';
+                bar.style.width = congestionBarPercent + '%';
+                bar.textContent = congestionBarPercent.toFixed(1) + '%';
                 
                 // Color based on congestion level with modern gradients
                 if (congestion < 0.4) {

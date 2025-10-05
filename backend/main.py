@@ -6,6 +6,7 @@ Backend API for urban simulation digital twin
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
 import os
@@ -80,9 +81,12 @@ class HealthResponse(BaseModel):
 
 
 # Routes
-@app.get("/", response_model=dict)
+@app.get("/")
 async def root():
-    """Root endpoint"""
+    """Serve the main HTML page"""
+    html_path = os.path.join(os.path.dirname(__file__), "..", "index.html")
+    if os.path.exists(html_path):
+        return FileResponse(html_path)
     return {
         "message": "SimCity AI API",
         "version": "1.0.0",
