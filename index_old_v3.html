@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>SimCity AI - Traffic Prediction v3.3</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0e27;
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0;
+            color: #e4e4e7;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 24px;
+            max-width: 1800px;
+            margin: 0 auto;
+            height: calc(100vh - 40px);
+            position: relative;
+            z-index: 1;
+        }
+
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+        }
+
+        .left-panel {
+            background: rgba(17, 24, 39, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 24px;
+            box-shadow: 
+                0 0 60px rgba(99, 102, 241, 0.1),
+                inset 0 1px 1px rgba(255, 255, 255, 0.05);
+            padding: 32px;
+            overflow-y: auto;
+            max-height: calc(100vh - 40px);
+        }
+
+        .left-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .left-panel::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 10px;
+        }
+
+        .left-panel::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.5);
+            border-radius: 10px;
+        }
+
+        .left-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.7);
+        }
+
+        .map-container {
+            background: rgba(17, 24, 39, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 24px;
+            box-shadow: 
+                0 0 60px rgba(99, 102, 241, 0.1),
+                inset 0 1px 1px rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            min-height: 500px;
+            border-radius: 24px;
+        }
+
+        h1 {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-align: center;
+            margin-bottom: 8px;
+            font-size: 2.2em;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #94a3b8;
+            margin-bottom: 32px;
+            font-size: 0.9em;
+            font-weight: 400;
+            letter-spacing: 0.02em;
+        }
+
+        .map-overlay {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            background: rgba(17, 24, 39, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            padding: 20px 24px;
+            border-radius: 16px;
+            box-shadow: 
+                0 10px 40px rgba(0, 0, 0, 0.5),
+                inset 0 1px 1px rgba(255, 255, 255, 0.1);
+            z-index: 1;
+            max-width: 320px;
+        }
+
+        .map-overlay h3 {
+            margin: 0 0 12px 0;
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 1.1em;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        .map-overlay p {
+            margin: 6px 0;
+            font-size: 0.875em;
+            color: #cbd5e1;
+            line-height: 1.5;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            background: rgba(17, 24, 39, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            padding: 18px 20px;
+            border-radius: 16px;
+            box-shadow: 
+                0 10px 40px rgba(0, 0, 0, 0.5),
+                inset 0 1px 1px rgba(255, 255, 255, 0.1);
+            z-index: 1;
+        }
+
+        .legend h4 {
+            margin: 0 0 12px 0;
+            font-size: 0.875em;
+            color: #e4e4e7;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 0.85em;
+        }
+
+        .legend-color {
+            width: 32px;
+            height: 16px;
+            border-radius: 4px;
+            margin-right: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            color: #cbd5e1;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.8em;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input, select {
+            padding: 12px 16px;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 12px;
+            font-size: 0.9em;
+            color: #e4e4e7;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        input::placeholder {
+            color: #64748b;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            background: rgba(30, 41, 59, 0.8);
+            border-color: #6366f1;
+            box-shadow: 
+                0 0 0 3px rgba(99, 102, 241, 0.2),
+                0 4px 16px rgba(99, 102, 241, 0.3);
+        }
+
+        select {
+            cursor: pointer;
+        }
+
+        select option {
+            background: #1e293b;
+            color: #e4e4e7;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: #6366f1;
+        }
+
+        .predict-btn {
+            position: relative;
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            font-size: 1em;
+            font-weight: 700;
+            border-radius: 12px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s ease;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            overflow: hidden;
+        }
+
+        .predict-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .predict-btn:hover::before {
+            left: 100%;
+        }
+
+        .predict-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 12px 32px rgba(99, 102, 241, 0.5),
+                0 0 40px rgba(168, 85, 247, 0.3);
+        }
+
+        .predict-btn:active {
+            transform: translateY(0);
+        }
+
+        .predict-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .predict-btn:disabled::before {
+            display: none;
+        }
+
+        .results {
+            margin-top: 24px;
+            padding: 24px;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 16px;
+            display: none;
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05);
+        }
+
+        .results.show {
+            display: block;
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .results h2 {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.4em;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .metric-card {
+            background: rgba(17, 24, 39, 0.8);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            padding: 18px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.3),
+                inset 0 1px 1px rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            border-color: rgba(99, 102, 241, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 
+                0 8px 24px rgba(0, 0, 0, 0.4),
+                0 0 20px rgba(99, 102, 241, 0.2);
+        }
+
+        .metric-label {
+            color: #94a3b8;
+            font-size: 0.75em;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+
+        .metric-value {
+            font-size: 1.8em;
+            font-weight: 800;
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+        }
+
+        .metric-unit {
+            font-size: 0.7em;
+            color: #64748b;
+            margin-left: 4px;
+            font-weight: 500;
+        }
+
+        /* Congestion Level Styling */
+        #congestionCard {
+            border: 2px solid rgba(99, 102, 241, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #congestionCard::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            opacity: 0.1;
+            transition: all 0.3s ease;
+        }
+
+        #congestionCard.congestion-low::before {
+            background: linear-gradient(135deg, #10b981, #34d399);
+        }
+
+        #congestionCard.congestion-medium::before {
+            background: linear-gradient(135deg, #f59e0b, #fbbf24);
+        }
+
+        #congestionCard.congestion-high::before {
+            background: linear-gradient(135deg, #ef4444, #f87171);
+        }
+
+        #congestionCard.congestion-low {
+            border-color: rgba(16, 185, 129, 0.5);
+        }
+
+        #congestionCard.congestion-medium {
+            border-color: rgba(245, 158, 11, 0.5);
+        }
+
+        #congestionCard.congestion-high {
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        #congestionLevel {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #congestionCard.congestion-low #congestionLevel {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #congestionCard.congestion-medium #congestionLevel {
+            background: linear-gradient(135deg, #f59e0b, #fbbf24);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #congestionCard.congestion-high #congestionLevel {
+            background: linear-gradient(135deg, #ef4444, #f87171);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #congestionStatus {
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        #congestionCard.congestion-low #congestionStatus {
+            color: #10b981;
+        }
+
+        #congestionCard.congestion-medium #congestionStatus {
+            color: #f59e0b;
+        }
+
+        #congestionCard.congestion-high #congestionStatus {
+            color: #ef4444;
+        }
+
+        .congestion-bar {
+            margin-top: 16px;
+            padding: 18px;
+            background: rgba(17, 24, 39, 0.8);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 12px;
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05);
+        }
+
+        .congestion-label {
+            font-weight: 600;
+            color: #cbd5e1;
+            margin-bottom: 10px;
+            font-size: 0.875em;
+            letter-spacing: 0.02em;
+        }
+
+        .bar-container {
+            width: 100%;
+            height: 32px;
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 16px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 16px;
+            transition: width 1s ease, background 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bar-fill::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .bar-text {
+            color: white;
+            font-weight: 700;
+            font-size: 0.85em;
+            z-index: 1;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 24px;
+            color: #6366f1;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        .error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+            padding: 16px;
+            border-radius: 12px;
+            margin-top: 20px;
+            display: none;
+            font-size: 0.9em;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .info-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            background: rgba(99, 102, 241, 0.2);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            color: #cbd5e1;
+            border-radius: 20px;
+            font-size: 0.85em;
+            margin-top: 10px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        small {
+            color: #64748b;
+            font-size: 0.8em;
+            margin-top: 6px;
+            display: block;
+            line-height: 1.4;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-indicator.active {
+            background: #10b981;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Left Panel: Form and Results -->
+        <div class="left-panel">
+            <h1>DIGI SIM AI</h1>
+            <div class="subtitle">Advanced Traffic Prediction System v3.0</div>
+            <div style="text-align: center; margin-bottom: 24px;">
+                <div class="info-badge">
+                    <span class="status-indicator active"></span>Click Map to Set Destination
+                </div>
+            </div>
+
+            <form id="predictionForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="hour">Hour of Day</label>
+                        <input type="number" id="hour" min="0" max="23" value="8" required placeholder="0-23">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="date">Date</label>
+                        <input type="date" id="date" required>
+                        <small>Select any date within the next 30 days</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="speedLimit">Average Speed</label>
+                        <select id="speedLimit" required>
+                            <option value="25">Residential (25 mph / 40 km/h)</option>
+                            <option value="35">City Streets (35 mph / 56 km/h)</option>
+                            <option value="45" selected>Main Roads (45 mph / 72 km/h)</option>
+                            <option value="55">Highway (55 mph / 88 km/h)</option>
+                            <option value="65">Expressway (65 mph / 105 km/h)</option>
+                            <option value="75">Interstate (75 mph / 120 km/h)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="unitSystem">Distance Units</label>
+                        <select id="unitSystem" required>
+                            <option value="imperial" selected>Miles (Imperial)</option>
+                            <option value="metric">Kilometers (Metric)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="background: rgba(16, 185, 129, 0.1); padding: 16px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.3);">
+                        <label style="color: #6ee7b7;">Origin (Start Point)</label>
+                        <div id="originLocation" style="margin-top: 10px; color: #cbd5e1; font-size: 0.9em; font-weight: 500;">
+                            Right-click map for origin, left-click for destination
+                        </div>
+                        <input type="hidden" id="origin_latitude" value="32.7357">
+                        <input type="hidden" id="origin_longitude" value="-97.1081">
+                    </div>
+
+                    <div class="form-group" style="background: rgba(99, 102, 241, 0.1); padding: 16px; border-radius: 12px; border: 1px solid rgba(99, 102, 241, 0.3);">
+                        <label style="color: #a5b4fc;">Destination (End Point)</label>
+                        <div id="selectedLocation" style="margin-top: 10px; color: #cbd5e1; font-size: 0.9em; font-weight: 500;">
+                            Left-click on the map to select destination
+                        </div>
+                        <input type="hidden" id="latitude" value="32.7357">
+                        <input type="hidden" id="longitude" value="-97.1081">
+                    </div>
+                </div>
+
+                <button type="submit" class="predict-btn" id="submitBtn">
+                    Calculate Route & Traffic
+                </button>
+            </form>
+
+            <div class="error" id="error"></div>
+
+        <div class="results" id="results">
+            <h2>Route Analysis</h2>
+            
+            <div class="metrics">
+                <div class="metric-card">
+                    <div class="metric-label">Distance</div>
+                    <div class="metric-value" id="distance">--</div>
+                    <div class="metric-unit" id="distanceUnit">mi</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-label">Avg Speed</div>
+                    <div class="metric-value" id="avgSpeed">--</div>
+                    <div class="metric-unit" id="speedUnit">mph</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-label">Baseline Time</div>
+                    <div class="metric-value" id="baselineTime">--</div>
+                    <div class="metric-unit">minutes</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-label">With Traffic</div>
+                    <div class="metric-value" id="travelTime">--</div>
+                    <div class="metric-unit">minutes</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-label">Vehicle Count</div>
+                    <div class="metric-value" id="vehicleCount">--</div>
+                    <div class="metric-unit">vehicles</div>
+                </div>
+
+                <div class="metric-card" id="congestionCard">
+                    <div class="metric-label">Congestion Level</div>
+                    <div class="metric-value" id="congestionLevel">--</div>
+                    <div class="metric-unit" id="congestionStatus">--</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-label">Confidence</div>
+                    <div class="metric-value" id="confidence" style="font-size: 1.5em;">--</div>
+                </div>
+            </div>
+
+            <div class="congestion-bar">
+                <div class="congestion-label">Congestion Level</div>
+                <div class="bar-container">
+                    <div class="bar-fill" id="congestionBar"></div>
+                </div>
+            </div>
+
+            <div style="text-align: center;">
+                <span class="info-badge" id="modelVersion">Model v1.0.0</span>
+            </div>
+        </div>
+
+        <div class="loading" id="loading" style="display: none;">
+            Analyzing traffic conditions
+        </div>
+    </div>
+
+    <!-- Right Panel: Interactive Map -->
+    <div class="map-container">
+        <div id="map"></div>
+        
+        <div class="map-overlay" id="mapInfo" style="display: none;">
+            <h3>Location Info</h3>
+            <p><strong>Area:</strong> <span id="areaName">UT Arlington</span></p>
+            <p><strong>Congestion:</strong> <span id="mapCongestion">--</span></p>
+            <p><strong>Status:</strong> <span id="mapStatus">Ready</span></p>
+        </div>
+
+        <div class="legend">
+            <h4>Traffic Levels</h4>
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(90deg, #10b981, #34d399);"></div>
+                <span>Low (0-40%)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(90deg, #f59e0b, #fbbf24);"></div>
+                <span>Medium (40-70%)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(90deg, #ef4444, #dc2626);"></div>
+                <span>High (70-100%)</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';  // Backend API URL
+        const MAPBOX_TOKEN = 'pk.eyJ1IjoidXRrYXJzOTUiLCJhIjoiY21nY3U3Njg1MHZnZTJscHVheThyNjdidiJ9.fmQIpz87lspbbIhk1lfQLQ';
+        
+        // Initialize Mapbox map
+        mapboxgl.accessToken = MAPBOX_TOKEN;
+        
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/dark-v11',
+            center: [-97.1081, 32.7357], // UT Arlington coordinates
+            zoom: 13,
+            pitch: 45,
+            bearing: 0
+        });
+
+        // Initialize date picker with constraints
+        function initializeDatePicker() {
+            const dateInput = document.getElementById('date');
+            const today = new Date();
+            const maxDate = new Date();
+            maxDate.setDate(today.getDate() + 30);
+            
+            // Set min and max dates
+            dateInput.min = today.toISOString().split('T')[0];
+            dateInput.max = maxDate.toISOString().split('T')[0];
+            
+            // Set default to today
+            dateInput.value = today.toISOString().split('T')[0];
+            
+            // Check if selected date has a holiday
+            dateInput.addEventListener('change', async () => {
+                const selectedDate = dateInput.value;
+                if (selectedDate) {
+                    await checkHolidayForDate(selectedDate);
+                }
+            });
+        }
+        
+        // Check if date has a holiday
+        async function checkHolidayForDate(dateStr) {
+            try {
+                const response = await fetch(`${API_URL}/api/is-holiday?date=${dateStr}`);
+                const data = await response.json();
+                
+                const dateInput = document.getElementById('date');
+                const parentDiv = dateInput.parentElement;
+                
+                // Remove existing holiday indicator
+                const existingIndicator = parentDiv.querySelector('.holiday-indicator');
+                if (existingIndicator) {
+                    existingIndicator.remove();
+                }
+                
+                if (data.is_holiday && data.holiday_name) {
+                    const indicator = document.createElement('div');
+                    indicator.className = 'holiday-indicator';
+                    indicator.style.cssText = 'margin-top: 8px; padding: 8px; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 4px; font-size: 0.85em;';
+                    indicator.innerHTML = `🎉 <strong>${data.holiday_name}</strong><br>Traffic impact: ${(data.traffic_impact * 100).toFixed(0)}%`;
+                    parentDiv.appendChild(indicator);
+                }
+            } catch (error) {
+                console.log('Could not check holiday status:', error);
+            }
+        }
+
+        // Store current user marker
+        let userMarker = null;
+        let selectedLocation = {
+            lat: 32.7357,
+            lng: -97.1081
+        };
+
+        // Add navigation controls
+        map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+        // Add 3D buildings layer
+        map.on('load', () => {
+            // Add 3D building layer
+            const layers = map.getStyle().layers;
+            const labelLayerId = layers.find(
+                (layer) => layer.type === 'symbol' && layer.layout['text-field']
+            ).id;
+
+            map.addLayer({
+                'id': '3d-buildings',
+                'source': 'composite',
+                'source-layer': 'building',
+                'filter': ['==', 'extrude', 'true'],
+                'type': 'fill-extrusion',
+                'minzoom': 15,
+                'paint': {
+                    'fill-extrusion-color': '#aaa',
+                    'fill-extrusion-height': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        15,
+                        0,
+                        15.05,
+                        ['get', 'height']
+                    ],
+                    'fill-extrusion-base': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        15,
+                        0,
+                        15.05,
+                        ['get', 'min_height']
+                    ],
+                    'fill-extrusion-opacity': 0.6
+                }
+            }, labelLayerId);
+
+            // Add marker at UT Arlington
+            new mapboxgl.Marker({ color: '#667eea' })
+                .setLngLat([-97.1081, 32.7357])
+                .setPopup(new mapboxgl.Popup().setHTML('<h3>🎓 UT Arlington</h3><p>Traffic Analysis Center</p>'))
+                .addTo(map);
+
+            console.log('Map loaded successfully');
+            
+            // Load holidays
+            loadHolidays();
+            
+            // Initialize date picker
+            initializeDatePicker();
+        });
+
+        // ===== VARIABLES FOR MARKERS =====
+        let originMarker = null;
+        let destMarker = null;
+        let selectedOrigin = { lat: 32.7357, lng: -97.1081 };  // Default: UT Arlington
+        let selectedDest = null;
+
+        // ===== MAP CLICK TO PLACE DESTINATION (LEFT CLICK) =====
+        map.on('click', (e) => {
+            const { lng, lat } = e.lngLat;
+            
+            // Update destination
+            selectedDest = { lat, lng };
+            
+            // Update hidden form fields
+            document.getElementById('latitude').value = lat.toFixed(6);
+            document.getElementById('longitude').value = lng.toFixed(6);
+            
+            // Update display
+            updateLocationDisplay(lat, lng, 'destination');
+            
+            // Remove old dest marker if exists
+            if (destMarker) {
+                destMarker.remove();
+            }
+            
+            // Add new destination marker (blue)
+            destMarker = new mapboxgl.Marker({ color: '#6366f1', scale: 1.2 })
+                .setLngLat([lng, lat])
+                .setPopup(new mapboxgl.Popup().setHTML(`
+                    <div style="font-family: Inter, sans-serif; padding: 4px;">
+                        <h3 style="margin: 0 0 8px 0; color: #1e293b; font-size: 0.95em; font-weight: 600;">Destination</h3>
+                        <p style="margin: 4px 0; font-size: 0.85em; color: #475569;"><strong>Lat:</strong> ${lat.toFixed(6)}</p>
+                        <p style="margin: 4px 0; font-size: 0.85em; color: #475569;"><strong>Lng:</strong> ${lng.toFixed(6)}</p>
+                    </div>
+                `))
+                .addTo(map);
+            
+            console.log(`Destination set: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+        });
+
+        // ===== MAP RIGHT-CLICK TO PLACE ORIGIN =====
+        map.on('contextmenu', (e) => {
+            e.preventDefault();
+            const { lng, lat } = e.lngLat;
+            
+            // Update origin
+            selectedOrigin = { lat, lng };
+            
+            // Update hidden form fields
+            document.getElementById('origin_latitude').value = lat.toFixed(6);
+            document.getElementById('origin_longitude').value = lng.toFixed(6);
+            
+            // Update display
+            updateLocationDisplay(lat, lng, 'origin');
+            
+            // Remove old origin marker if exists
+            if (originMarker) {
+                originMarker.remove();
+            }
+            
+            // Add new origin marker (green)
+            originMarker = new mapboxgl.Marker({ color: '#10b981', scale: 1.2 })
+                .setLngLat([lng, lat])
+                .setPopup(new mapboxgl.Popup().setHTML(`
+                    <div style="font-family: Inter, sans-serif; padding: 4px;">
+                        <h3 style="margin: 0 0 8px 0; color: #1e293b; font-size: 0.95em; font-weight: 600;">Origin</h3>
+                        <p style="margin: 4px 0; font-size: 0.85em; color: #475569;"><strong>Lat:</strong> ${lat.toFixed(6)}</p>
+                        <p style="margin: 4px 0; font-size: 0.85em; color: #475569;"><strong>Lng:</strong> ${lng.toFixed(6)}</p>
+                    </div>
+                `))
+                .addTo(map);
+            
+            console.log(`Origin set: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+        });
+
+        // Update location display
+        function updateLocationDisplay(lat, lng, type) {
+            const locationDiv = document.getElementById(type === 'origin' ? 'originLocation' : 'selectedLocation');
+            
+            // Calculate distance from UTA
+            const utaLat = 32.7357;
+            const utaLng = -97.1081;
+            const distance = Math.sqrt(
+                Math.pow(lat - utaLat, 2) + Math.pow(lng - utaLng, 2)
+            ) * 111; // Convert to km
+            
+            let area = 'Selected Area';
+            if (distance < 1) {
+                area = 'Campus Area';
+            } else if (distance < 2) {
+                area = 'Near Campus';
+            } else if (distance < 3) {
+                area = '🏙️ City Center';
+            } else {
+                area = '🏘️ Surrounding Area';
+            }
+            
+            locationDiv.innerHTML = `
+                <div style="font-weight: bold; color: #667eea; margin-bottom: 5px;">${area}</div>
+                <div style="font-size: 0.85em;">
+                    <strong>Lat:</strong> ${lat.toFixed(6)}<br>
+                    <strong>Lng:</strong> ${lng.toFixed(6)}<br>
+                    <strong>Distance from UTA:</strong> ${distance.toFixed(2)} km
+                </div>
+            `;
+        }
+
+        // Load holidays from API
+        async function loadHolidays() {
+            try {
+                const response = await fetch(`${API_URL}/api/holidays?days_ahead=30`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log(`Loaded ${data.count} holidays for next 30 days`);
+                    
+                    // Store in global variable for day selector
+                    window.holidays = data.holidays;
+                    
+                    // Update day selector with holiday indicators
+                    updateDaySelector();
+                }
+            } catch (error) {
+                console.error('Error loading holidays:', error);
+            }
+        }
+
+        // Update day selector with holiday indicators
+        function updateDaySelector() {
+            // No longer needed - we're using date picker now
+            console.log('Using date picker instead of day selector');
+        }
+
+        // Store current traffic markers
+        let trafficMarkers = [];
+        
+        // Function to add traffic heatmap to map
+        function updateTrafficHeatmap(congestionLevel, travelTime, vehicleCount) {
+            // Clear existing markers
+            trafficMarkers.forEach(marker => marker.remove());
+            trafficMarkers = [];
+
+            // Use selected location as center
+            const center = [selectedLocation.lng, selectedLocation.lat];
+            const points = generateTrafficPoints(center, congestionLevel);
+
+            // Add heatmap source if not exists
+            if (map.getSource('traffic-heat')) {
+                map.getSource('traffic-heat').setData({
+                    type: 'FeatureCollection',
+                    features: points
+                });
+            } else {
+                map.addSource('traffic-heat', {
+                    type: 'geojson',
+                    data: {
+                        type: 'FeatureCollection',
+                        features: points
+                    }
+                });
+
+                // Add heatmap layer
+                map.addLayer({
+                    id: 'traffic-heatmap',
+                    type: 'heatmap',
+                    source: 'traffic-heat',
+                    maxzoom: 18,
+                    paint: {
+                        'heatmap-weight': ['get', 'intensity'],
+                        'heatmap-intensity': 1.5,
+                        'heatmap-color': [
+                            'interpolate',
+                            ['linear'],
+                            ['heatmap-density'],
+                            0, 'rgba(0, 176, 155, 0)',
+                            0.2, 'rgb(0, 176, 155)',
+                            0.4, 'rgb(150, 201, 61)',
+                            0.6, 'rgb(243, 156, 18)',
+                            0.8, 'rgb(241, 196, 15)',
+                            1, 'rgb(231, 76, 60)'
+                        ],
+                        'heatmap-radius': 30,
+                        'heatmap-opacity': 0.8
+                    }
+                });
+            }
+
+            // Update map overlay
+            document.getElementById('mapInfo').style.display = 'block';
+            document.getElementById('mapCongestion').textContent = (congestionLevel * 100).toFixed(1) + '%';
+            
+            let status = 'Flowing Smoothly';
+            if (congestionLevel > 0.7) status = 'Heavy Congestion';
+            else if (congestionLevel > 0.4) status = 'Moderate Traffic';
+            
+            document.getElementById('mapStatus').textContent = status;
+
+            // Animate to show the area
+            map.flyTo({
+                center: center,
+                zoom: 14,
+                pitch: 60,
+                bearing: 45,
+                duration: 2000
+            });
+        }
+
+        // Generate traffic points for heatmap
+        function generateTrafficPoints(center, congestion) {
+            const features = [];
+            const numPoints = 50;
+            const radius = 0.02; // ~2km radius
+
+            for (let i = 0; i < numPoints; i++) {
+                const angle = Math.random() * 2 * Math.PI;
+                const distance = Math.sqrt(Math.random()) * radius;
+                
+                const lng = center[0] + distance * Math.cos(angle);
+                const lat = center[1] + distance * Math.sin(angle);
+                
+                // Intensity varies based on congestion level with some randomness
+                const intensity = congestion * (0.7 + Math.random() * 0.6);
+
+                features.push({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [lng, lat]
+                    },
+                    properties: {
+                        intensity: intensity
+                    }
+                });
+            }
+
+            return features;
+        }
+        
+        // Form submission handler
+        document.getElementById('predictionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Get form values
+            const hour = document.getElementById('hour').value;
+            const dateStr = document.getElementById('date').value;
+            const destLat = document.getElementById('latitude').value;
+            const destLng = document.getElementById('longitude').value;
+            const originLat = document.getElementById('origin_latitude').value;
+            const originLng = document.getElementById('origin_longitude').value;
+            const speedLimit = document.getElementById('speedLimit').value;
+            const unitSystem = document.getElementById('unitSystem').value;
+            
+            // Parse date to get day of week
+            const selectedDate = new Date(dateStr + 'T00:00:00');
+            const dayOfWeek = selectedDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            // Convert to our format: 0 = Monday, 6 = Sunday
+            const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+            
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').classList.remove('show');
+            document.getElementById('error').classList.remove('show');
+            document.getElementById('submitBtn').disabled = true;
+            
+            try {
+                // Make API call with origin, destination, and time
+                const url = `${API_URL}/api/predict-location?` + 
+                    `dest_latitude=${destLat}&` +
+                    `dest_longitude=${destLng}&` +
+                    `origin_latitude=${originLat}&` +
+                    `origin_longitude=${originLng}&` +
+                    `hour=${hour}&` +
+                    `day_of_week=${adjustedDayOfWeek}&` +
+                    `date=${dateStr}&` +
+                    `speed_limit=${speedLimit}`;
+                
+                const response = await fetch(url, { method: 'POST' });
+                
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const prediction = data.prediction;
+                
+                // Convert units if imperial
+                let distance = prediction.distance_km;
+                let avgSpeed = parseFloat(speedLimit);
+                let distanceUnit = 'km';
+                let speedUnit = 'km/h';
+                
+                if (unitSystem === 'imperial') {
+                    distance = distance * 0.621371; // km to miles
+                    distanceUnit = 'mi';
+                    speedUnit = 'mph';
+                } else {
+                    // Convert speed from mph to km/h for display
+                    avgSpeed = avgSpeed * 1.60934;
+                    speedUnit = 'km/h';
+                }
+                
+                // Update results with distance and travel times
+                document.getElementById('distance').textContent = distance.toFixed(1);
+                document.getElementById('distanceUnit').textContent = distanceUnit;
+                document.getElementById('avgSpeed').textContent = avgSpeed.toFixed(0);
+                document.getElementById('speedUnit').textContent = speedUnit;
+                document.getElementById('baselineTime').textContent = prediction.baseline_travel_time_min.toFixed(1);
+                document.getElementById('travelTime').textContent = prediction.adjusted_travel_time_min.toFixed(1);
+                document.getElementById('vehicleCount').textContent = Math.round(prediction.vehicle_count).toLocaleString();
+                document.getElementById('confidence').textContent = prediction.confidence.toUpperCase();
+                
+                // Update congestion level card with color indicators
+                const congestionLevel = prediction.congestion_level;
+                console.log('Congestion Level from API:', congestionLevel);
+                const congestionPercent = (congestionLevel * 100).toFixed(0);
+                const congestionCard = document.getElementById('congestionCard');
+                
+                console.log('Updating congestion card with:', congestionPercent + '%');
+                
+                // Update congestion value
+                document.getElementById('congestionLevel').textContent = congestionPercent + '%';
+                
+                // Remove existing congestion classes
+                congestionCard.classList.remove('congestion-low', 'congestion-medium', 'congestion-high');
+                
+                // Add appropriate class and status text based on congestion level
+                if (congestionLevel < 0.4) {
+                    congestionCard.classList.add('congestion-low');
+                    document.getElementById('congestionStatus').textContent = 'Light Traffic';
+                    console.log('Applied: Light Traffic (Green)');
+                } else if (congestionLevel < 0.7) {
+                    congestionCard.classList.add('congestion-medium');
+                    document.getElementById('congestionStatus').textContent = 'Moderate Traffic';
+                    console.log('Applied: Moderate Traffic (Yellow)');
+                } else {
+                    congestionCard.classList.add('congestion-high');
+                    document.getElementById('congestionStatus').textContent = 'Heavy Traffic';
+                    console.log('Applied: Heavy Traffic (Red)');
+                }
+                
+                // Update model version
+                document.getElementById('modelVersion').textContent = `Model v${data.model_version}`;
+                
+                // Show holiday info if applicable
+                if (prediction.is_holiday) {
+                    const holidayBadge = document.createElement('span');
+                    holidayBadge.className = 'info-badge';
+                    holidayBadge.style.background = 'rgba(239, 68, 68, 0.2)';
+                    holidayBadge.style.border = '1px solid rgba(239, 68, 68, 0.5)';
+                    holidayBadge.style.color = '#fca5a5';
+                    holidayBadge.textContent = `HOLIDAY: ${prediction.holiday_name}`;
+                    holidayBadge.style.display = 'block';
+                    holidayBadge.style.marginTop = '12px';
+                    holidayBadge.style.textAlign = 'center';
+                    
+                    const resultsDiv = document.getElementById('results');
+                    const existingBadge = resultsDiv.querySelector('.holiday-badge');
+                    if (existingBadge) {
+                        existingBadge.remove();
+                    }
+                    holidayBadge.classList.add('holiday-badge');
+                    resultsDiv.appendChild(holidayBadge);
+                }
+                
+                // Update congestion bar
+                const congestion = prediction.congestion_level;
+                const congestionBarPercent = congestion * 100;
+                const bar = document.getElementById('congestionBar');
+                bar.style.width = congestionBarPercent + '%';
+                bar.textContent = congestionBarPercent.toFixed(1) + '%';
+                
+                // Color based on congestion level with modern gradients
+                if (congestion < 0.4) {
+                    bar.style.background = 'linear-gradient(90deg, #10b981, #34d399)';
+                } else if (congestion < 0.7) {
+                    bar.style.background = 'linear-gradient(90deg, #f59e0b, #fbbf24)';
+                } else {
+                    bar.style.background = 'linear-gradient(90deg, #ef4444, #dc2626)';
+                }
+                
+                // Update map overlay area name
+                document.getElementById('areaName').textContent = prediction.area;
+                
+                // Show results
+                document.getElementById('results').classList.add('show');
+                
+                // Update map with traffic heatmap
+                updateTrafficHeatmap(congestion, prediction.travel_time_min, prediction.vehicle_count);
+                
+                console.log('Prediction completed:', prediction);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                const errorDiv = document.getElementById('error');
+                errorDiv.textContent = `Error: ${error.message}. Make sure the backend is running on ${API_URL}`;
+                errorDiv.classList.add('show');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('submitBtn').disabled = false;
+            }
+        });
+
+        // Auto-focus first input
+        document.getElementById('hour').focus();
+        
+        // Initialize location display
+        updateLocationDisplay(32.7357, -97.1081);
+    </script>
+</body>
+</html>
