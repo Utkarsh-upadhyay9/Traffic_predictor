@@ -9,6 +9,8 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.3
+      - key: PYTHONPATH
+        value: /opt/render/project/src
       - key: GEMINI_API_KEY
         value: AIzaSyDQBIe6HG58TMe_HYdW6F9AShugLYWYbYk
 
