@@ -9,7 +9,7 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     print("⚠️  PyTorch not installed - deep learning predictions will be disabled")
-    print("   App will use Google Maps-style patterns instead (works great!)")
+    print("   App will use temporal traffic patterns and Random Forest models instead")
     TORCH_AVAILABLE = False
     torch = None
     nn = None
