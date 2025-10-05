@@ -59,31 +59,31 @@ class TrafficDataCollector:
             },
         }
         
-        # Major cities for data collection (expanded)
+        # Texas cities - focused on Dallas-Fort Worth metroplex and surrounding areas
         self.cities = [
-            # US Cities
-            {"name": "New York", "lat": 40.7128, "lon": -74.0060, "country": "US"},
-            {"name": "Los Angeles", "lat": 34.0522, "lon": -118.2437, "country": "US"},
-            {"name": "Chicago", "lat": 41.8781, "lon": -87.6298, "country": "US"},
-            {"name": "Houston", "lat": 29.7604, "lon": -95.3698, "country": "US"},
-            {"name": "Phoenix", "lat": 33.4484, "lon": -112.0740, "country": "US"},
-            {"name": "Philadelphia", "lat": 39.9526, "lon": -75.1652, "country": "US"},
-            {"name": "San Antonio", "lat": 29.4241, "lon": -98.4936, "country": "US"},
-            {"name": "San Diego", "lat": 32.7157, "lon": -117.1611, "country": "US"},
-            {"name": "Dallas", "lat": 32.7767, "lon": -96.7970, "country": "US"},
-            {"name": "San Jose", "lat": 37.3382, "lon": -121.8863, "country": "US"},
+            # Dallas-Fort Worth Metroplex (PRIMARY FOCUS)
+            {"name": "Dallas Downtown", "lat": 32.7767, "lon": -96.7970, "country": "US", "priority": 1},
+            {"name": "Arlington", "lat": 32.7357, "lon": -97.1081, "country": "US", "priority": 1},
+            {"name": "Fort Worth", "lat": 32.7555, "lon": -97.3308, "country": "US", "priority": 1},
+            {"name": "Plano", "lat": 33.0198, "lon": -96.6989, "country": "US", "priority": 1},
+            {"name": "Irving", "lat": 32.8140, "lon": -96.9489, "country": "US", "priority": 1},
+            {"name": "Garland", "lat": 32.9126, "lon": -96.6389, "country": "US", "priority": 1},
+            {"name": "Frisco", "lat": 33.1507, "lon": -96.8236, "country": "US", "priority": 1},
+            {"name": "McKinney", "lat": 33.1972, "lon": -96.6397, "country": "US", "priority": 1},
+            {"name": "Carrollton", "lat": 32.9537, "lon": -96.8903, "country": "US", "priority": 1},
+            {"name": "Denton", "lat": 33.2148, "lon": -97.1331, "country": "US", "priority": 1},
+            {"name": "Richardson", "lat": 32.9483, "lon": -96.7299, "country": "US", "priority": 1},
+            {"name": "Grand Prairie", "lat": 32.7459, "lon": -96.9978, "country": "US", "priority": 1},
+            {"name": "Mesquite", "lat": 32.7668, "lon": -96.5992, "country": "US", "priority": 1},
+            {"name": "Lewisville", "lat": 33.0462, "lon": -96.9942, "country": "US", "priority": 1},
             
-            # International Cities (for diversity)
-            {"name": "London", "lat": 51.5074, "lon": -0.1278, "country": "UK"},
-            {"name": "Paris", "lat": 48.8566, "lon": 2.3522, "country": "FR"},
-            {"name": "Tokyo", "lat": 35.6762, "lon": 139.6503, "country": "JP"},
-            {"name": "Mumbai", "lat": 19.0760, "lon": 72.8777, "country": "IN"},
-            {"name": "Beijing", "lat": 39.9042, "lon": 116.4074, "country": "CN"},
-            {"name": "São Paulo", "lat": -23.5505, "lon": -46.6333, "country": "BR"},
-            {"name": "Mexico City", "lat": 19.4326, "lon": -99.1332, "country": "MX"},
-            {"name": "Cairo", "lat": 30.0444, "lon": 31.2357, "country": "EG"},
-            {"name": "Moscow", "lat": 55.7558, "lon": 37.6173, "country": "RU"},
-            {"name": "Sydney", "lat": -33.8688, "lon": 151.2093, "country": "AU"},
+            # Other Major Texas Cities (SECONDARY)
+            {"name": "Houston", "lat": 29.7604, "lon": -95.3698, "country": "US", "priority": 2},
+            {"name": "San Antonio", "lat": 29.4241, "lon": -98.4936, "country": "US", "priority": 2},
+            {"name": "Austin", "lat": 30.2672, "lon": -97.7431, "country": "US", "priority": 2},
+            {"name": "El Paso", "lat": 31.7619, "lon": -106.4850, "country": "US", "priority": 3},
+            {"name": "Corpus Christi", "lat": 27.8006, "lon": -97.3964, "country": "US", "priority": 3},
+            {"name": "Lubbock", "lat": 33.5779, "lon": -101.8552, "country": "US", "priority": 3},
         ]
         
         # Sample grid points around each city

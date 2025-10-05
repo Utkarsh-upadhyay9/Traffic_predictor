@@ -1,13 +1,14 @@
-# 🚗 Real-World Traffic Data Collection & Training
+# 🚗 Dallas-Fort Worth Traffic Data Collection & Training
 
 ## 📚 Overview
 
-This directory contains scripts to **collect real traffic data** from the internet and **train ML models** on up to **1 billion samples**.
+This directory contains scripts to **collect real traffic data** from the Dallas-Fort Worth metroplex and **train ML models** on up to **1 billion samples**.
 
 ### Current Status:
-- ✅ **Synthetic data**: 100,000 samples (already working)
-- 🆕 **Real data collection**: 1K - 1B samples (new!)
+- ✅ **Synthetic data**: 100,000 samples from DFW area (already working)
+- 🆕 **Real data collection**: 1K - 1B samples from Texas cities (new!)
 - 🆕 **Distributed training**: Multi-GPU support (new!)
+- 🎯 **Texas-focused**: Specialized for Dallas, Arlington, Fort Worth & surrounding areas
 
 ---
 
@@ -26,7 +27,7 @@ python quick_start_real_data.py
 This will:
 1. Check dependencies (install if needed)
 2. Let you choose sample size (Demo/Small/Medium/Large)
-3. Collect real traffic data from 20+ cities
+3. Collect real traffic data from 20 Texas cities (Dallas, Arlington, Fort Worth, Plano, Frisco, etc.)
 4. Train 4 ML models automatically
 5. Save models ready for production
 
@@ -63,9 +64,10 @@ python train_on_real_data.py
 
 ### Free Sources (Current)
 - **OpenStreetMap**: Road network data (lanes, speed limits, road types)
-- **Realistic Simulation**: Traffic patterns based on real characteristics
-- **20 Major Cities**: New York, LA, Chicago, Tokyo, London, Paris, etc.
+- **Realistic Simulation**: Traffic patterns based on real Texas characteristics
+- **20 Texas Cities**: Dallas, Arlington, Fort Worth, Plano, Frisco, Irving, Garland, Richardson, McKinney, Denton, Carrollton, Grand Prairie, Mesquite, Lewisville, Houston, San Antonio, Austin, El Paso, Corpus Christi, Lubbock
 - **Full Coverage**: 24 hours × 7 days × all road types
+- **Texas Events**: Cowboys, Rangers, Mavericks, Stars games, State Fair of Texas, Six Flags
 
 ### Paid Sources (For 10M+ samples)
 - **TomTom Traffic API**: $500-1000/month
