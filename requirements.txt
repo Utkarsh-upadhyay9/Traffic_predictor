@@ -20,6 +20,9 @@ python-dotenv==1.0.0
 requests==2.31.0
 python-dateutil==2.8.2
 
+# Google Gemini API (needed by distance_service and gemini_service)
+google-generativeai==0.3.2
+
 # (Intentionally no numpy / pandas / torch / scikit-learn)
 # All ML functionality gracefully degrades to pattern-based logic.
 
