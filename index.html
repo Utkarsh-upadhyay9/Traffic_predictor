@@ -451,8 +451,8 @@
             <form id="predictionForm">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="hour">Hour of Day</label>
-                        <input type="number" id="hour" min="0" max="23" value="8" required placeholder="0-23">
+                        <label for="time">Time</label>
+                        <input type="time" id="time" value="08:00" required>
                     </div>
 
                     <div class="form-group">
@@ -796,30 +796,11 @@
         function updateLocationDisplay(lat, lng, type) {
             const locationDiv = document.getElementById(type === 'origin' ? 'originLocation' : 'selectedLocation');
             
-            // Calculate distance from UTA
-            const utaLat = 32.7357;
-            const utaLng = -97.1081;
-            const distance = Math.sqrt(
-                Math.pow(lat - utaLat, 2) + Math.pow(lng - utaLng, 2)
-            ) * 111; // Convert to km
-            
-            let area = 'Selected Area';
-            if (distance < 1) {
-                area = 'Campus Area';
-            } else if (distance < 2) {
-                area = 'Near Campus';
-            } else if (distance < 3) {
-                area = '🏙️ City Center';
-            } else {
-                area = '🏘️ Surrounding Area';
-            }
-            
             locationDiv.innerHTML = `
-                <div style="font-weight: bold; color: #667eea; margin-bottom: 5px;">${area}</div>
+                <div style="font-weight: bold; color: #667eea; margin-bottom: 5px;">Selected Location</div>
                 <div style="font-size: 0.85em;">
                     <strong>Lat:</strong> ${lat.toFixed(6)}<br>
-                    <strong>Lng:</strong> ${lng.toFixed(6)}<br>
-                    <strong>Distance from UTA:</strong> ${distance.toFixed(2)} km
+                    <strong>Lng:</strong> ${lng.toFixed(6)}
                 </div>
             `;
         }
@@ -960,7 +941,8 @@
             e.preventDefault();
             
             // Get form values
-            const hour = document.getElementById('hour').value;
+            const timeStr = document.getElementById('time').value;
+            const hour = parseInt(timeStr.split(':')[0]);  // Extract hour from time input
             const dateStr = document.getElementById('date').value;
             const destLat = document.getElementById('latitude').value;
             const destLng = document.getElementById('longitude').value;
@@ -1118,7 +1100,7 @@
         });
 
         // Auto-focus first input
-        document.getElementById('hour').focus();
+        document.getElementById('time').focus();
         
         // Initialize location display
         updateLocationDisplay(32.7357, -97.1081);

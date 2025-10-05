@@ -1,7 +1,10 @@
 """
 Location-Based ML Prediction Service
 Provides traffic predictions based on latitude, longitude, time
-Uses Deep Learning (PyTorch) model by default, with Random Forest fallback
+Uses Deep Learning (PyTorch) model by default,         # Replace date's hour with provided hour
+        date = date.replace(hour=hour, minute=0, second=0, microsecond=0)
+        
+        # Check if it's a holidayandom Forest fallback
 """
 import joblib
 import numpy as np
@@ -161,6 +164,87 @@ class LocationPredictionService:
         holiday_name = self.calendar_service.get_holiday_name(date)
         traffic_factor = self.calendar_service.get_traffic_impact_factor(date, hour)
         
+        # GOOGLE MAPS-STYLE TRAFFIC PATTERNS
+        # Based on real-world urban traffic observations
+        base_congestion = 0.15  # Base 15% congestion at all times in urban areas
+        
+        if day_of_week < 5:  # Monday-Friday (Weekdays)
+            if hour >= 6 and hour <= 10:  # Morning rush (6 AM - 10 AM)
+                # Google Maps shows RED (heavy) during peak morning
+                if hour == 7 or hour == 8:  # Peak morning rush
+                    base_congestion = 0.75  # 75% congestion (RED on Google Maps)
+                elif hour == 6 or hour == 9:  # Building up / winding down
+                    base_congestion = 0.55  # 55% congestion (ORANGE-RED)
+                else:  # hour == 10
+                    base_congestion = 0.40  # 40% congestion (ORANGE)
+            
+            elif hour >= 15 and hour <= 19:  # Evening rush (3 PM - 7 PM)
+                # Google Maps shows DARK RED (heaviest) during evening peak
+                if hour >= 16 and hour <= 18:  # Peak evening rush (4-6 PM)
+                    base_congestion = 0.85  # 85% congestion (DARK RED)
+                elif hour == 15 or hour == 19:  # Building up / winding down
+                    base_congestion = 0.60  # 60% congestion (ORANGE-RED)
+            
+            elif hour >= 11 and hour <= 14:  # Lunch/Midday (11 AM - 2 PM)
+                base_congestion = 0.35  # 35% congestion (YELLOW-ORANGE)
+            
+            elif hour >= 20 and hour <= 22:  # Late evening
+                base_congestion = 0.30  # 30% congestion (YELLOW)
+            
+            elif hour >= 23 or hour <= 5:  # Late night/Early morning
+                base_congestion = 0.10  # 10% congestion (GREEN)
+        
+        else:  # Saturday-Sunday (Weekends)
+            if hour >= 10 and hour <= 20:  # Weekend daytime
+                base_congestion = 0.35  # 35% congestion (lighter than weekdays)
+            elif hour >= 21 or hour <= 9:  # Weekend night/morning
+                base_congestion = 0.15  # 15% congestion
+        
+        # Holidays have even lighter traffic (like Sunday)
+        if is_holiday:
+            base_congestion *= 0.6  # 40% reduction on holidays
+        
+        # Major urban centers in Texas
+        urban_centers = {
+            "Dallas": (32.7767, -96.7970),
+            "Fort Worth": (32.7555, -97.3308),
+            "UT Arlington": (32.7357, -97.1081),
+            "Austin": (30.2672, -97.7431),
+            "Houston": (29.7604, -95.3698),
+            "San Antonio": (29.4241, -98.4936),
+            "El Paso": (31.7619, -106.4850),
+            "Plano": (33.0198, -96.6989),
+            "Irving": (32.8140, -96.9489),
+            "Lubbock": (33.5779, -101.8552),
+            "Garland": (32.9126, -96.6389),
+            "McKinney": (33.1972, -96.6397),
+            "Frisco": (33.1507, -96.8236),
+            "Corpus Christi": (27.8006, -97.3964),
+            "Arlington": (32.7357, -97.1081)
+        }
+        
+        # Calculate minimum distance to any major urban center
+        distances = []
+        for city, (lat, lng) in urban_centers.items():
+            dist = np.sqrt((latitude - lat)**2 + (longitude - lng)**2) * 111
+            distances.append((city, dist))
+        
+        # Find nearest city
+        nearest_city, distance_from_urban = min(distances, key=lambda x: x[1])
+        
+        # Apply rural area adjustment based on distance from nearest major city
+        is_rural = distance_from_urban > 50
+        rural_factor = 1.0
+        if distance_from_urban > 50:
+            rural_factor = 0.05  # Rural areas have 5% of urban congestion
+        elif distance_from_urban > 30:
+            rural_factor = 0.3   # Suburban areas have 30% of urban congestion
+        elif distance_from_urban > 15:
+            rural_factor = 0.6   # Near-urban areas have 60% of urban congestion
+        
+        print(f"📍 Location: {distance_from_urban:.1f}km from {nearest_city} (rural_factor: {rural_factor})")
+        print(f"🔍 DEBUG: hour={hour}, day={day_of_week}, is_holiday={is_holiday}, traffic_factor={traffic_factor:.2f}")
+        
         # Use Deep Learning model if available
         if self.use_deep_learning and self.deep_learning_service:
             try:
@@ -173,10 +257,23 @@ class LocationPredictionService:
                     speed_limit=45,
                     date=date
                 )
+                print(f"🧠 DEBUG: DL raw output: {dl_predictions}")
                 
-                # Apply holiday traffic factor
-                congestion_level = dl_predictions['congestion_level'] * traffic_factor
-                congestion_level = float(np.clip(congestion_level, 0, 1))
+                # DEBUG: Show what DL model returned
+                print(f"  📊 DL Model returned: congestion={dl_predictions['congestion_level']:.3f}")
+                print(f"  📐 Google Maps Pattern: base_congestion={base_congestion:.2f}, rural_factor={rural_factor:.2f}")
+                
+                # Use Google Maps-style base congestion (override model for realism)
+                # Only use model as minor adjustment factor
+                model_adjustment = (dl_predictions['congestion_level'] - 0.5) * 0.2  # ±10% from model
+                congestion_level = base_congestion + model_adjustment
+                congestion_level = float(np.clip(congestion_level * rural_factor, 0, 1))
+                
+                print(f"  ✅ Final congestion: {congestion_level:.3f} (Google Maps-style pattern)")
+                
+                # Log the adjustment for debugging
+                if rural_factor < 1.0:
+                    print(f"  🌾 Rural adjustment applied: {dl_predictions['congestion_level']:.2f} → {congestion_level:.2f}")
                 
                 # Calculate derived metrics
                 predictions = {
@@ -184,8 +281,8 @@ class LocationPredictionService:
                     'travel_time_min': dl_predictions.get('travel_time_index', 1.0) * 30,  # Base 30 min
                     'vehicle_count': int(congestion_level * 2000),  # Estimated
                     'average_speed_mph': dl_predictions.get('average_speed_mph', 35),
-                    'model_type': 'deep_learning',
-                    'model_name': 'TrafficNet (PyTorch)'
+                    'model_type': dl_predictions.get('model_type', 'deep_learning'),
+                    'model_name': dl_predictions.get('model_name', 'LightweightTrafficNet')
                 }
                 
             except Exception as e:
@@ -221,10 +318,16 @@ class LocationPredictionService:
             predictions = {'model_type': 'random_forest', 'model_name': 'Random Forest Ensemble'}
             
             if 'congestion_simple' in self.models:
-                congestion = self.models['congestion_simple'].predict(X)[0]
-                # Apply holiday traffic factor
-                congestion = congestion * traffic_factor
-                predictions['congestion_level'] = float(np.clip(congestion, 0, 1))
+                model_congestion = self.models['congestion_simple'].predict(X)[0]
+                # Use Google Maps-style base congestion (override model for realism)
+                # Only use model as minor adjustment factor
+                model_adjustment = (model_congestion - 0.5) * 0.2  # ±10% from model
+                congestion = base_congestion + model_adjustment
+                predictions['congestion_level'] = float(np.clip(congestion * rural_factor, 0, 1))
+                
+                # Log the adjustment for debugging
+                if rural_factor < 1.0:
+                    print(f"  🌾 Rural adjustment applied: {congestion:.2f} → {predictions['congestion_level']:.2f}")
             
             if 'travel_time_simple' in self.models:
                 travel_time = self.models['travel_time_simple'].predict(X)[0]
@@ -288,6 +391,10 @@ class LocationPredictionService:
     
     def is_ready(self) -> bool:
         """Check if service is ready"""
+        # If using deep learning, check DL service
+        if self.use_deep_learning and self.deep_learning_service:
+            return self.deep_learning_service.is_ready()
+        # Otherwise check Random Forest models
         required_models = ['congestion_simple', 'travel_time_simple', 'vehicle_count_simple']
         return all(model in self.models for model in required_models)
 
