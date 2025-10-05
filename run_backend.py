@@ -14,16 +14,16 @@ os.environ['GEMINI_API_KEY'] = 'AIzaSyDQBIe6HG58TMe_HYdW6F9AShugLYWYbYk'
 # Start uvicorn
 if __name__ == "__main__":
     import uvicorn
-    print("\n🚀 Starting SimCity AI v2.1 Backend")
-    print("📍 Pin-to-Place: ENABLED")
-    print("📅 Calendar Integration: ENABLED")
-    print("🤖 ML Models: LOADED")
-    print("\n🌐 Server will run on http://localhost:8001\n")
+    print("\n🚀 Starting Traffic Predictor v4.1 Backend")
+    print("📍 Texas Locations: 33+ cities")
+    print("📅 Holiday Detection: ENABLED")
+    print("🤖 ML Models: 91.6% avg accuracy")
+    print("\n🌐 Server will run on http://localhost:8000\n")
     
     uvicorn.run(
         "backend.main:app",
         host="0.0.0.0",
-        port=8001,
+        port=8000,
         reload=False,
         log_level="info"
     )
