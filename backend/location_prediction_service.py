@@ -1,18 +1,22 @@
 """
 Location-Based ML Prediction Service
 Provides traffic predictions based on latitude, longitude, time
-Uses Deep Learning (PyTorch) model by default,         # Replace date's hour with provided hour
-        date = date.replace(hour=hour, minute=0, second=0, microsecond=0)
-        
-        # Check if it's a holidayandom Forest fallback
+Uses Deep Learning (PyTorch) model by default, with Random Forest fallback
 """
-import joblib
-import numpy as np
+import math
 import json
 from pathlib import Path
 from typing import Dict, Optional
 from datetime import datetime, timedelta
 from calendar_service import get_calendar_service
+
+# Optional imports for ML models
+try:
+    import joblib
+    JOBLIB_AVAILABLE = True
+except ImportError:
+    JOBLIB_AVAILABLE = False
+    print("⚠️  joblib not available, Random Forest models disabled")
 
 try:
     from deep_learning_service import get_deep_learning_service
@@ -62,6 +66,10 @@ class LocationPredictionService:
     
     def _load_models(self):
         """Load all trained models"""
+        if not JOBLIB_AVAILABLE:
+            print("⚠️  joblib not available, skipping Random Forest model loading")
+            return
+        
         model_files = {
             'congestion_simple': 'congestion_simple_location_model.pkl',
             'travel_time_simple': 'travel_time_simple_location_model.pkl',
@@ -100,7 +108,7 @@ class LocationPredictionService:
         # Distance from campus
         lat_diff = lat - uta_center['lat']
         lon_diff = lon - uta_center['lon']
-        distance_from_campus = np.sqrt(lat_diff**2 + lon_diff**2) * 111  # Convert to km
+        distance_from_campus = math.sqrt(lat_diff**2 + lon_diff**2) * 111  # Convert to km
         
         # Determine location type based on distance and position
         if distance_from_campus < 1:
@@ -226,7 +234,7 @@ class LocationPredictionService:
         # Calculate minimum distance to any major urban center
         distances = []
         for city, (lat, lng) in urban_centers.items():
-            dist = np.sqrt((latitude - lat)**2 + (longitude - lng)**2) * 111
+            dist = math.sqrt((latitude - lat)**2 + (longitude - lng)**2) * 111
             distances.append((city, dist))
         
         # Find nearest city
@@ -267,7 +275,7 @@ class LocationPredictionService:
                 # Only use model as minor adjustment factor
                 model_adjustment = (dl_predictions['congestion_level'] - 0.5) * 0.2  # ±10% from model
                 congestion_level = base_congestion + model_adjustment
-                congestion_level = float(np.clip(congestion_level * rural_factor, 0, 1))
+                congestion_level = float(max(0, min(1, congestion_level * rural_factor)))
                 
                 print(f"  ✅ Final congestion: {congestion_level:.3f} (Google Maps-style pattern)")
                 
@@ -303,8 +311,8 @@ class LocationPredictionService:
             # Add engineered features
             features['is_weekend'] = 1 if day_of_week >= 5 else 0
             features['is_rush_hour'] = 1 if (6 <= hour <= 9) or (15 <= hour <= 18) else 0
-            features['hour_sin'] = np.sin(2 * np.pi * hour / 24)
-            features['hour_cos'] = np.cos(2 * np.pi * hour / 24)
+            features['hour_sin'] = math.sin(2 * math.pi * hour / 24)
+            features['hour_cos'] = math.cos(2 * math.pi * hour / 24)
             
             # Create feature array (must match training order)
             simple_features = self.feature_info.get('simple_features', [
@@ -312,18 +320,27 @@ class LocationPredictionService:
                 'is_weekend', 'is_rush_hour', 'hour_sin', 'hour_cos'
             ])
             
-            X = np.array([[features[f] for f in simple_features]])
+            # Convert to list for model prediction (only if joblib available)
+            if not JOBLIB_AVAILABLE:
+                print("⚠️  Cannot use Random Forest models without joblib")
+                # Use Google Maps patterns instead
+                congestion = base_congestion * rural_factor
+                predictions['congestion_level'] = float(max(0, min(1, congestion)))
+                predictions['travel_time_min'] = 30.0  # Default
+                predictions['vehicle_count'] = int(congestion * 2000)
+            else:
+                X = [[features[f] for f in simple_features]]
             
-            # Make predictions
+                # Make predictions
             predictions = {'model_type': 'random_forest', 'model_name': 'Random Forest Ensemble'}
             
-            if 'congestion_simple' in self.models:
+            if JOBLIB_AVAILABLE and 'congestion_simple' in self.models:
                 model_congestion = self.models['congestion_simple'].predict(X)[0]
                 # Use Google Maps-style base congestion (override model for realism)
                 # Only use model as minor adjustment factor
                 model_adjustment = (model_congestion - 0.5) * 0.2  # ±10% from model
                 congestion = base_congestion + model_adjustment
-                predictions['congestion_level'] = float(np.clip(congestion * rural_factor, 0, 1))
+                predictions['congestion_level'] = float(max(0, min(1, congestion * rural_factor)))
                 
                 # Log the adjustment for debugging
                 if rural_factor < 1.0:
