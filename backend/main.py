@@ -508,6 +508,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8001,  # Using 8001 since 8000 is occupied
-        reload=False  # Disable reload to prevent issues
+        port=8000,  # Standard port for development
+        reload=False  # Disable reload to avoid Windows multiprocessing issues
     )
