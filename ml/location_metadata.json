@@ -1,0 +1,105 @@
+{
+  "center": {
+    "lat": 32.7357,
+    "lon": -97.1081
+  },
+  "radius_km": 5,
+  "major_locations": [
+    {
+      "name": "UTA Main Campus",
+      "lat": 32.7357,
+      "lon": -97.1081,
+      "type": "campus"
+    },
+    {
+      "name": "Cooper St & I-30",
+      "lat": 32.744,
+      "lon": -97.1145,
+      "type": "highway_intersection"
+    },
+    {
+      "name": "Division St & Collins",
+      "lat": 32.7305,
+      "lon": -97.1028,
+      "type": "major_intersection"
+    },
+    {
+      "name": "Abram St & Cooper",
+      "lat": 32.7312,
+      "lon": -97.1134,
+      "type": "commercial"
+    },
+    {
+      "name": "Mitchell St & Fielder",
+      "lat": 32.718,
+      "lon": -97.1089,
+      "type": "residential"
+    },
+    {
+      "name": "Park Row & Center",
+      "lat": 32.7318,
+      "lon": -97.1213,
+      "type": "downtown"
+    },
+    {
+      "name": "Watson Rd & New York Ave",
+      "lat": 32.7156,
+      "lon": -97.1235,
+      "type": "residential"
+    },
+    {
+      "name": "Arkansas Ln & Cooper",
+      "lat": 32.7248,
+      "lon": -97.1156,
+      "type": "commercial"
+    },
+    {
+      "name": "I-30 & Highway 360",
+      "lat": 32.7525,
+      "lon": -97.1012,
+      "type": "highway_interchange"
+    },
+    {
+      "name": "Collins & Mitchell",
+      "lat": 32.7201,
+      "lon": -97.1034,
+      "type": "major_intersection"
+    },
+    {
+      "name": "Parks Mall Area",
+      "lat": 32.728,
+      "lon": -97.089,
+      "type": "shopping_center"
+    },
+    {
+      "name": "AT&T Stadium Vicinity",
+      "lat": 32.748,
+      "lon": -97.093,
+      "type": "event_venue"
+    },
+    {
+      "name": "Six Flags Area",
+      "lat": 32.755,
+      "lon": -97.071,
+      "type": "entertainment"
+    },
+    {
+      "name": "Arlington Medical District",
+      "lat": 32.702,
+      "lon": -97.115,
+      "type": "medical"
+    },
+    {
+      "name": "Arlington Airport Area",
+      "lat": 32.699,
+      "lon": -97.094,
+      "type": "industrial"
+    },
+    {
+      "name": "Lincoln Square",
+      "lat": 32.734,
+      "lon": -97.1,
+      "type": "mixed_use"
+    }
+  ]
+}

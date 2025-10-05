@@ -64,3 +64,16 @@ auth_config.json
 # API Keys
 *_key.txt
 secrets/
+
+# ML Models (too large for GitHub - over 100MB)
+ml/models/*_full_location_model.pkl
+ml/models/vehicle_count_full_location_model.pkl
+ml/models/congestion_full_location_model.pkl
+ml/models/travel_time_full_location_model.pkl
+
+# Keep simple models (smaller)
+!ml/models/*_simple_location_model.pkl
+!ml/models/*.json
+
+# Large datasets
+ml/real_world_traffic_data.csv

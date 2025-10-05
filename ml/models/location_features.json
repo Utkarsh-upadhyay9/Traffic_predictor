@@ -1,0 +1,33 @@
+{
+  "full_features": [
+    "latitude",
+    "longitude",
+    "hour",
+    "day_of_week",
+    "distance_from_campus_km",
+    "location_type_encoded",
+    "num_lanes",
+    "road_capacity",
+    "weather_condition",
+    "is_holiday",
+    "has_event",
+    "has_incident",
+    "speed_limit",
+    "is_weekend",
+    "is_rush_hour",
+    "hour_sin",
+    "hour_cos"
+  ],
+  "simple_features": [
+    "latitude",
+    "longitude",
+    "hour",
+    "day_of_week",
+    "is_weekend",
+    "is_rush_hour",
+    "hour_sin",
+    "hour_cos"
+  ],
+  "version": "2.0.0",
+  "trained_date": "2025-10-04 19:42:22.490525"
+}
