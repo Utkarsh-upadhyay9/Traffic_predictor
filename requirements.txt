@@ -1,22 +1,15 @@
-# Minimal requirements for Render.com deployment
-# Optimized for fast builds and small memory footprint
+# Ultra-minimal requirements for Render.com deployment
+# Only packages with pre-built wheels - NO compilation needed
 
-# Core API (Fast install)
+# Core API (Fast install, pre-built wheels)
 fastapi==0.109.0
-uvicorn[standard]==0.27.0
+uvicorn==0.27.0
 pydantic==2.5.3
 python-dotenv==1.0.0
 
-# Essential ML (Pre-built wheels available)
-numpy==1.24.3
-scikit-learn==1.3.2
-joblib==1.3.2
-
-# Utilities
+# Utilities (pre-built)
 requests==2.31.0
-holidays==0.35
+python-dateutil==2.8.2
 
-# Optional: Uncomment if needed (increases build time)
-# torch==2.1.2
-# pandas==2.1.4
-# google-generativeai==0.3.2
+# Simple data structures (no numpy)
+# App will work with pure Python + pattern-based predictions

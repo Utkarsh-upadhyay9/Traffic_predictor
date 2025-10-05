@@ -245,6 +245,144 @@ Use realistic urban planning principles."""
         except Exception as e:
             print(f"✗ City generation error: {e}")
             return {"error": str(e)}
+    
+    def predict_rural_traffic(
+        self,
+        latitude: float,
+        longitude: float,
+        hour: int,
+        day_of_week: int,
+        is_holiday: bool = False
+    ) -> Dict:
+        """
+        Use Gemini to predict traffic for rural areas where we don't have training data
+        
+        Args:
+            latitude: Location latitude
+            longitude: Location longitude
+            hour: Hour of day (0-23)
+            day_of_week: Day of week (0=Monday, 6=Sunday)
+            is_holiday: Whether it's a holiday
+            
+        Returns:
+            Dict with congestion_level, travel_time_index, average_speed
+        """
+    def predict_rural_traffic(
+        self,
+        latitude: float,
+        longitude: float,
+        hour: int,
+        day_of_week: int,
+        is_holiday: bool = False,
+        nearest_city: str = None,
+        distance_from_city: float = None
+    ) -> Dict:
+        """
+        Use Gemini to predict traffic for any Texas location
+        
+        Args:
+            latitude: Location latitude
+            longitude: Location longitude
+            hour: Hour of day (0-23)
+            day_of_week: Day of week (0=Monday, 6=Sunday)
+            is_holiday: Whether it's a holiday
+            nearest_city: Name of nearest major city (e.g., "Austin", "Dallas")
+            distance_from_city: Distance in km from nearest city
+            
+        Returns:
+            Dict with congestion_level, travel_time_index, average_speed
+        """
+        try:
+            # Map day_of_week to name
+            day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+            day_name = day_names[day_of_week]
+            
+            # Determine if weekend
+            is_weekend = day_of_week >= 5
+            
+            # Determine location type and expected congestion range
+            if distance_from_city is not None:
+                if distance_from_city < 5:
+                    location_desc = f"in {nearest_city} city center"
+                    congestion_hint = "Urban center - expect moderate to heavy congestion during rush hours (30-70%), light at night (5-20%)"
+                elif distance_from_city < 15:
+                    location_desc = f"in {nearest_city} suburbs ({distance_from_city:.1f}km from center)"
+                    congestion_hint = "Suburban area - expect light to moderate congestion during rush hours (15-40%), very light at night (5-15%)"
+                else:
+                    location_desc = f"rural area ({distance_from_city:.1f}km from {nearest_city})"
+                    congestion_hint = "Rural area - expect very light congestion (5-15%), minimal at night (2-8%)"
+            else:
+                location_desc = "Texas location"
+                congestion_hint = "General Texas area - assess based on time and day"
+            
+            # Rush hour logic
+            is_morning_rush = (hour >= 7 and hour <= 9) and not is_weekend
+            is_evening_rush = (hour >= 16 and hour <= 18) and not is_weekend
+            is_night = (hour >= 22 or hour <= 5)
+            
+            prompt = f"""You are a traffic analysis AI. Analyze traffic conditions for this Texas location.
+
+Location: {location_desc} (Lat: {latitude}, Lng: {longitude})
+Time: {hour}:00 on a {day_name}
+Is Holiday: {is_holiday}
+Is Weekend: {is_weekend}
+Morning Rush Hour: {is_morning_rush}
+Evening Rush Hour: {is_evening_rush}
+Late Night/Early Morning: {is_night}
+
+{congestion_hint}
+
+Provide a REALISTIC traffic assessment considering:
+1. Time of day is CRITICAL - 2 AM should be VERY low congestion (5-10%), 8 AM weekday should be high (40-70%)
+2. Day of week matters - weekends typically 20-40% lower congestion
+3. Rush hours (7-9 AM, 4-6 PM weekdays) have highest congestion
+4. Late night/early morning (10 PM - 6 AM) has lowest congestion
+5. Holidays reduce weekday traffic
+
+Return ONLY a JSON object with these exact fields:
+{{
+  "congestion_level": 0.45,  // 0.0 to 1.0 (percentage as decimal) - MUST vary by time!
+  "travel_time_index": 1.0,  // 1.0 = normal, 2.0 = twice as long
+  "average_speed_mph": 45,   // typical speed in mph
+  "location_type": "urban",  // urban, suburban, or rural
+  "reasoning": "brief explanation mentioning time of day"
+}}
+
+IMPORTANT: Adjust congestion based on TIME OF DAY! Don't give the same value for 2 AM and 8 AM!
+
+Return ONLY valid JSON, no other text."""
+
+            response = self.model.generate_content(prompt)
+            result_text = response.text.strip()
+            
+            # Clean up markdown if present
+            if result_text.startswith("```json"):
+                result_text = result_text.replace("```json", "").replace("```", "").strip()
+            elif result_text.startswith("```"):
+                result_text = result_text.replace("```", "").strip()
+            
+            # Parse JSON
+            result = json.loads(result_text)
+            
+            # Ensure values are in valid ranges
+            result["congestion_level"] = max(0.0, min(1.0, float(result.get("congestion_level", 0.05))))
+            result["travel_time_index"] = max(1.0, min(3.0, float(result.get("travel_time_index", 1.0))))
+            result["average_speed_mph"] = max(5, min(75, int(result.get("average_speed_mph", 55))))
+            
+            print(f"🤖 Gemini prediction for {location_desc} at {hour}:00: {result['congestion_level']*100:.1f}% congestion - {result.get('reasoning', 'N/A')}")
+            
+            return result
+            
+        except Exception as e:
+            print(f"⚠️ Gemini rural prediction failed: {e}")
+            # Return conservative rural estimates as fallback
+            return {
+                "congestion_level": 0.05,  # 5% congestion for rural
+                "travel_time_index": 1.0,
+                "average_speed_mph": 55,
+                "location_type": "rural",
+                "reasoning": "Default rural estimates (Gemini unavailable)"
+            }
 
 
 # Testing
