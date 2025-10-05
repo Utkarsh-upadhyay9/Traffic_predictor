@@ -3,3 +3,13 @@ scikit-learn==1.3.2
 joblib==1.3.2
 numpy==1.26.3
 pandas==2.1.4
+
+# Large-scale data collection and processing
+pyarrow==14.0.1  # Fast parquet reading/writing
+requests==2.31.0  # API requests
+retrying==1.3.4  # Retry logic for APIs
+
+# Optional: For distributed training (install separately if needed)
+# dask[complete]==2023.12.0  # Distributed computing
+# ray[default]==2.9.0  # Scalable ML
+# horovod==0.28.1  # Multi-GPU training
