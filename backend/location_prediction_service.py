@@ -1,6 +1,7 @@
 """
 Location-Based ML Prediction Service
 Provides traffic predictions based on latitude, longitude, time
+Uses Deep Learning (PyTorch) model by default, with Random Forest fallback
 """
 import joblib
 import numpy as np
@@ -9,6 +10,13 @@ from pathlib import Path
 from typing import Dict, Optional
 from datetime import datetime, timedelta
 from calendar_service import get_calendar_service
+
+try:
+    from deep_learning_service import get_deep_learning_service
+    DEEP_LEARNING_AVAILABLE = True
+except ImportError:
+    DEEP_LEARNING_AVAILABLE = False
+    print("⚠️  Deep learning service not available, using Random Forest models")
 
 class LocationPredictionService:
     """Service for location-based traffic predictions"""
@@ -27,7 +35,25 @@ class LocationPredictionService:
         self.location_metadata = {}
         self.calendar_service = get_calendar_service()
         
-        self._load_models()
+        # Try to initialize deep learning service
+        self.use_deep_learning = False
+        self.deep_learning_service = None
+        
+        if DEEP_LEARNING_AVAILABLE:
+            try:
+                self.deep_learning_service = get_deep_learning_service()
+                if self.deep_learning_service.is_ready():
+                    self.use_deep_learning = True
+                    print("✅ Using Deep Learning (PyTorch) model for predictions")
+                else:
+                    print("⚠️  Deep learning model not ready, falling back to Random Forest")
+            except Exception as e:
+                print(f"⚠️  Could not initialize deep learning: {e}")
+        
+        # Load Random Forest models as fallback
+        if not self.use_deep_learning:
+            self._load_models()
+        
         self._load_feature_info()
         self._load_location_metadata()
     
@@ -98,6 +124,7 @@ class LocationPredictionService:
     ) -> Dict:
         """
         Make prediction using only location and time
+        Uses Deep Learning model if available, otherwise Random Forest
         
         Args:
             latitude: Latitude coordinate
@@ -134,51 +161,85 @@ class LocationPredictionService:
         holiday_name = self.calendar_service.get_holiday_name(date)
         traffic_factor = self.calendar_service.get_traffic_impact_factor(date, hour)
         
-        # Prepare features
-        features = {
-            'latitude': latitude,
-            'longitude': longitude,
-            'hour': hour,
-            'day_of_week': day_of_week,
-        }
+        # Use Deep Learning model if available
+        if self.use_deep_learning and self.deep_learning_service:
+            try:
+                dl_predictions = self.deep_learning_service.predict(
+                    latitude=latitude,
+                    longitude=longitude,
+                    hour=hour,
+                    day_of_week=day_of_week,
+                    is_holiday=is_holiday,
+                    speed_limit=45,
+                    date=date
+                )
+                
+                # Apply holiday traffic factor
+                congestion_level = dl_predictions['congestion_level'] * traffic_factor
+                congestion_level = float(np.clip(congestion_level, 0, 1))
+                
+                # Calculate derived metrics
+                predictions = {
+                    'congestion_level': congestion_level,
+                    'travel_time_min': dl_predictions.get('travel_time_index', 1.0) * 30,  # Base 30 min
+                    'vehicle_count': int(congestion_level * 2000),  # Estimated
+                    'average_speed_mph': dl_predictions.get('average_speed_mph', 35),
+                    'model_type': 'deep_learning',
+                    'model_name': 'TrafficNet (PyTorch)'
+                }
+                
+            except Exception as e:
+                print(f"⚠️  Deep learning prediction failed: {e}, falling back to Random Forest")
+                # Fall through to Random Forest
+                self.use_deep_learning = False
         
-        # Add engineered features
-        features['is_weekend'] = 1 if day_of_week >= 5 else 0
-        features['is_rush_hour'] = 1 if (6 <= hour <= 9) or (15 <= hour <= 18) else 0
-        features['hour_sin'] = np.sin(2 * np.pi * hour / 24)
-        features['hour_cos'] = np.cos(2 * np.pi * hour / 24)
-        
-        # Create feature array (must match training order)
-        simple_features = self.feature_info.get('simple_features', [
-            'latitude', 'longitude', 'hour', 'day_of_week',
-            'is_weekend', 'is_rush_hour', 'hour_sin', 'hour_cos'
-        ])
-        
-        X = np.array([[features[f] for f in simple_features]])
-        
-        # Make predictions
-        predictions = {}
-        
-        if 'congestion_simple' in self.models:
-            congestion = self.models['congestion_simple'].predict(X)[0]
-            # Apply holiday traffic factor
-            congestion = congestion * traffic_factor
-            predictions['congestion_level'] = float(np.clip(congestion, 0, 1))
-        
-        if 'travel_time_simple' in self.models:
-            travel_time = self.models['travel_time_simple'].predict(X)[0]
-            # Apply holiday traffic factor (inverse for travel time)
-            if traffic_factor < 1.0:
-                travel_time = travel_time * (2 - traffic_factor)  # Less traffic = faster
-            else:
-                travel_time = travel_time * traffic_factor  # More traffic = slower
-            predictions['travel_time_min'] = float(max(1, travel_time))
-        
-        if 'vehicle_count_simple' in self.models:
-            vehicle_count = self.models['vehicle_count_simple'].predict(X)[0]
-            # Apply holiday traffic factor
-            vehicle_count = vehicle_count * traffic_factor
-            predictions['vehicle_count'] = int(max(0, vehicle_count))
+        # Use Random Forest models (fallback or primary)
+        if not self.use_deep_learning:
+            # Prepare features
+            features = {
+                'latitude': latitude,
+                'longitude': longitude,
+                'hour': hour,
+                'day_of_week': day_of_week,
+            }
+            
+            # Add engineered features
+            features['is_weekend'] = 1 if day_of_week >= 5 else 0
+            features['is_rush_hour'] = 1 if (6 <= hour <= 9) or (15 <= hour <= 18) else 0
+            features['hour_sin'] = np.sin(2 * np.pi * hour / 24)
+            features['hour_cos'] = np.cos(2 * np.pi * hour / 24)
+            
+            # Create feature array (must match training order)
+            simple_features = self.feature_info.get('simple_features', [
+                'latitude', 'longitude', 'hour', 'day_of_week',
+                'is_weekend', 'is_rush_hour', 'hour_sin', 'hour_cos'
+            ])
+            
+            X = np.array([[features[f] for f in simple_features]])
+            
+            # Make predictions
+            predictions = {'model_type': 'random_forest', 'model_name': 'Random Forest Ensemble'}
+            
+            if 'congestion_simple' in self.models:
+                congestion = self.models['congestion_simple'].predict(X)[0]
+                # Apply holiday traffic factor
+                congestion = congestion * traffic_factor
+                predictions['congestion_level'] = float(np.clip(congestion, 0, 1))
+            
+            if 'travel_time_simple' in self.models:
+                travel_time = self.models['travel_time_simple'].predict(X)[0]
+                # Apply holiday traffic factor (inverse for travel time)
+                if traffic_factor < 1.0:
+                    travel_time = travel_time * (2 - traffic_factor)  # Less traffic = faster
+                else:
+                    travel_time = travel_time * traffic_factor  # More traffic = slower
+                predictions['travel_time_min'] = float(max(1, travel_time))
+            
+            if 'vehicle_count_simple' in self.models:
+                vehicle_count = self.models['vehicle_count_simple'].predict(X)[0]
+                # Apply holiday traffic factor
+                vehicle_count = vehicle_count * traffic_factor
+                predictions['vehicle_count'] = int(max(0, vehicle_count))
         
         # Add metadata
         predictions['latitude'] = latitude
