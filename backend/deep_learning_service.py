@@ -11,7 +11,7 @@ from datetime import datetime
 
 class TrafficNet(nn.Module):
     """Neural network for traffic prediction"""
-    def __init__(self, input_size=10, hidden_sizes=[128, 64, 32], output_size=3):
+    def __init__(self, input_size=14, hidden_sizes=[2048, 2048, 2048], output_size=3):
         super(TrafficNet, self).__init__()
         
         layers = []
@@ -20,15 +20,14 @@ class TrafficNet(nn.Module):
         for hidden_size in hidden_sizes:
             layers.append(nn.Linear(prev_size, hidden_size))
             layers.append(nn.ReLU())
-            layers.append(nn.Dropout(0.2))
             prev_size = hidden_size
         
         layers.append(nn.Linear(prev_size, output_size))
         
-        self.network = nn.Sequential(*layers)
+        self.net = nn.Sequential(*layers)
     
     def forward(self, x):
-        return self.network(x)
+        return self.net(x)
 
 
 class DeepLearningPredictionService:
@@ -58,40 +57,37 @@ class DeepLearningPredictionService:
             # Load the checkpoint
             checkpoint = torch.load(model_path, map_location=self.device)
             
-            # Determine model architecture from checkpoint
+            # Extract model state dict
             if isinstance(checkpoint, dict):
-                # Extract model parameters
                 state_dict = checkpoint.get('model_state_dict', checkpoint)
-                
-                # Infer input/output sizes from state dict
-                first_layer_key = list(state_dict.keys())[0]
-                if 'network.0.weight' in state_dict:
-                    input_size = state_dict['network.0.weight'].shape[1]
-                    hidden_sizes = []
-                    
-                    # Find hidden layer sizes
-                    layer_idx = 0
-                    while f'network.{layer_idx}.weight' in state_dict:
-                        if layer_idx > 0:
-                            hidden_sizes.append(state_dict[f'network.{layer_idx}.weight'].shape[0])
-                        layer_idx += 3  # Skip ReLU and Dropout
-                    
-                    # Get output size from last layer
-                    last_layer_keys = [k for k in state_dict.keys() if k.startswith('network.')]
-                    last_layer_idx = max([int(k.split('.')[1]) for k in last_layer_keys if k.split('.')[1].isdigit()])
-                    output_size = state_dict[f'network.{last_layer_idx}.weight'].shape[0]
-                    
-                    # Create model
-                    self.model = TrafficNet(input_size=input_size, hidden_sizes=hidden_sizes, output_size=output_size)
-                    self.model.load_state_dict(state_dict)
-                else:
-                    # Try default architecture
-                    self.model = TrafficNet()
-                    self.model.load_state_dict(state_dict)
             else:
-                # Direct state dict
-                self.model = TrafficNet()
-                self.model.load_state_dict(checkpoint)
+                state_dict = checkpoint
+            
+            # Inspect architecture from state_dict
+            # Model structure: net.0.weight, net.2.weight, net.4.weight, etc.
+            input_size = state_dict['net.0.weight'].shape[1]
+            hidden_sizes = []
+            
+            # Find all linear layers (even indices: 0, 2, 4, 6, 8...)
+            layer_idx = 0
+            while f'net.{layer_idx}.weight' in state_dict:
+                layer_shape = state_dict[f'net.{layer_idx}.weight'].shape
+                hidden_sizes.append(layer_shape[0])  # Output size of this layer
+                layer_idx += 2  # Linear layers are at 0, 2, 4, 6, ...
+            
+            # Last entry is output size, rest are hidden layers
+            output_size = hidden_sizes[-1]
+            hidden_sizes = hidden_sizes[:-1]
+            
+            print(f"📊 Model architecture: input={input_size}, hidden={hidden_sizes}, output={output_size}")
+            
+            # Create model with correct architecture
+            self.model = TrafficNet(
+                input_size=input_size,
+                hidden_sizes=hidden_sizes,
+                output_size=output_size
+            )
+            self.model.load_state_dict(state_dict)
             
             self.model.to(self.device)
             self.model.eval()
@@ -115,18 +111,23 @@ class DeepLearningPredictionService:
         speed_limit: int = 45
     ) -> torch.Tensor:
         """
-        Prepare input features for the model
+        Prepare input features for the model (14 features total)
         
         Features:
-        - latitude
-        - longitude
-        - hour (normalized 0-23)
-        - day_of_week (normalized 0-6)
-        - is_weekend (binary)
-        - is_holiday (binary)
-        - hour_sin, hour_cos (cyclic encoding)
-        - speed_limit (normalized)
-        - distance_from_center
+        1. latitude (normalized)
+        2. longitude (normalized)
+        3. hour (normalized 0-1)
+        4. day_of_week (normalized 0-1)
+        5. is_weekend (binary)
+        6. is_holiday (binary)
+        7. hour_sin (cyclic encoding)
+        8. hour_cos (cyclic encoding)
+        9. speed_limit (normalized)
+        10. distance_from_center (km)
+        11. is_rush_hour (binary)
+        12. is_morning (binary)
+        13. is_afternoon (binary)
+        14. is_evening (binary)
         """
         # UT Arlington center
         center_lat, center_lon = 32.7357, -97.1081
@@ -138,21 +139,29 @@ class DeepLearningPredictionService:
         hour_sin = np.sin(2 * np.pi * hour / 24)
         hour_cos = np.cos(2 * np.pi * hour / 24)
         
-        # Is weekend
+        # Binary features
         is_weekend = 1 if day_of_week >= 5 else 0
+        is_rush_hour = 1 if (6 <= hour <= 9) or (16 <= hour <= 19) else 0
+        is_morning = 1 if 6 <= hour < 12 else 0
+        is_afternoon = 1 if 12 <= hour < 18 else 0
+        is_evening = 1 if 18 <= hour < 24 else 0
         
         # Normalize features
         features = np.array([
-            latitude / 90.0,  # Normalize latitude
-            longitude / 180.0,  # Normalize longitude
-            hour / 24.0,
-            day_of_week / 7.0,
-            is_weekend,
-            1 if is_holiday else 0,
-            hour_sin,
-            hour_cos,
-            speed_limit / 100.0,  # Normalize speed limit
-            distance / 50.0  # Normalize distance (assume max 50km)
+            latitude / 90.0,  # 1. Normalize latitude
+            longitude / 180.0,  # 2. Normalize longitude
+            hour / 24.0,  # 3. Normalize hour
+            day_of_week / 7.0,  # 4. Normalize day_of_week
+            is_weekend,  # 5. Binary: is weekend
+            1 if is_holiday else 0,  # 6. Binary: is holiday
+            hour_sin,  # 7. Cyclic hour (sin)
+            hour_cos,  # 8. Cyclic hour (cos)
+            speed_limit / 100.0,  # 9. Normalize speed limit
+            distance / 50.0,  # 10. Normalize distance (max 50km)
+            is_rush_hour,  # 11. Binary: is rush hour
+            is_morning,  # 12. Binary: is morning
+            is_afternoon,  # 13. Binary: is afternoon
+            is_evening  # 14. Binary: is evening
         ], dtype=np.float32)
         
         return torch.from_numpy(features).unsqueeze(0).to(self.device)
