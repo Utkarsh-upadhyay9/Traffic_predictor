@@ -2,8 +2,18 @@
 Deep Learning Prediction Service
 Uses PyTorch neural network model for traffic predictions
 """
-import torch
-import torch.nn as nn
+# Try to import PyTorch - gracefully handle if not installed
+try:
+    import torch
+    import torch.nn as nn
+    TORCH_AVAILABLE = True
+except ImportError:
+    print("⚠️  PyTorch not installed - deep learning predictions will be disabled")
+    print("   App will use Google Maps-style patterns instead (works great!)")
+    TORCH_AVAILABLE = False
+    torch = None
+    nn = None
+
 import numpy as np
 from pathlib import Path
 from typing import Dict, Optional
@@ -35,6 +45,13 @@ class DeepLearningPredictionService:
     
     def __init__(self, models_dir: str = "ml/models"):
         """Initialize the service with trained model"""
+        # Check if PyTorch is available
+        if not TORCH_AVAILABLE:
+            print("⚠️  PyTorch not available - skipping deep learning model loading")
+            self.model = None
+            self.device = None
+            return
+            
         models_path = Path(models_dir)
         if not models_path.exists():
             models_path = Path("..") / models_dir
@@ -47,54 +64,103 @@ class DeepLearningPredictionService:
     
     def _load_model(self):
         """Load the trained PyTorch model"""
-        model_path = self.models_dir / "deep_traffic_best.pth"
+        if not TORCH_AVAILABLE:
+            return
+            
+        # Try lightweight model first (new, properly trained)
+        lightweight_path = self.models_dir / "lightweight_traffic_model.pth"
+        old_model_path = self.models_dir / "deep_traffic_best.pth"
+        
+        print(f"🔍 Looking for models in: {self.models_dir.absolute()}")
+        print(f"   Lightweight model exists: {lightweight_path.exists()}")
+        print(f"   Old model exists: {old_model_path.exists()}")
+        
+        model_path = lightweight_path if lightweight_path.exists() else old_model_path
+        
+        print(f"📦 Loading model from: {model_path}")
         
         if not model_path.exists():
             print(f"⚠️  Deep learning model not found: {model_path}")
+            print(f"🔧 Run 'python ml/train_lightweight_model.py' to train a new model")
             return
         
         try:
             # Load the checkpoint
             checkpoint = torch.load(model_path, map_location=self.device)
             
-            # Extract model state dict
+            # Extract model state dict and metadata
             if isinstance(checkpoint, dict):
                 state_dict = checkpoint.get('model_state_dict', checkpoint)
+                input_size = checkpoint.get('input_size', 8)
+                hidden_size = checkpoint.get('hidden_size', 128)
+                output_size = checkpoint.get('output_size', 3)
+                
+                print(f"📊 Lightweight model: input={input_size}, hidden={hidden_size}, output={output_size}")
+                
+                # Use LightweightTrafficNet architecture
+                from torch import nn
+                
+                class LightweightTrafficNet(nn.Module):
+                    def __init__(self, input_size=8, hidden_size=128, output_size=3):
+                        super(LightweightTrafficNet, self).__init__()
+                        self.net = nn.Sequential(
+                            nn.Linear(input_size, hidden_size),
+                            nn.ReLU(),
+                            nn.Dropout(0.2),
+                            nn.Linear(hidden_size, hidden_size),
+                            nn.ReLU(),
+                            nn.Dropout(0.2),
+                            nn.Linear(hidden_size, hidden_size // 2),
+                            nn.ReLU(),
+                            nn.Dropout(0.1),
+                            nn.Linear(hidden_size // 2, output_size)
+                        )
+                        self.sigmoid = nn.Sigmoid()
+                        self.relu = nn.ReLU()
+                    
+                    def forward(self, x):
+                        out = self.net(x)
+                        congestion = self.sigmoid(out[:, 0:1])
+                        travel_time = 1.0 + self.relu(out[:, 1:2]) * 2.0
+                        speed = 5.0 + self.relu(out[:, 2:3]) * 70.0
+                        return torch.cat([congestion, travel_time, speed], dim=1)
+                
+                self.model = LightweightTrafficNet(input_size, hidden_size, output_size)
+                self.model.load_state_dict(state_dict)
+                self.model_type = "lightweight"
+                
             else:
+                # Fallback to old model format
                 state_dict = checkpoint
-            
-            # Inspect architecture from state_dict
-            # Model structure: net.0.weight, net.2.weight, net.4.weight, etc.
-            input_size = state_dict['net.0.weight'].shape[1]
-            hidden_sizes = []
-            
-            # Find all linear layers (even indices: 0, 2, 4, 6, 8...)
-            layer_idx = 0
-            while f'net.{layer_idx}.weight' in state_dict:
-                layer_shape = state_dict[f'net.{layer_idx}.weight'].shape
-                hidden_sizes.append(layer_shape[0])  # Output size of this layer
-                layer_idx += 2  # Linear layers are at 0, 2, 4, 6, ...
-            
-            # Last entry is output size, rest are hidden layers
-            output_size = hidden_sizes[-1]
-            hidden_sizes = hidden_sizes[:-1]
-            
-            print(f"📊 Model architecture: input={input_size}, hidden={hidden_sizes}, output={output_size}")
-            
-            # Create model with correct architecture
-            self.model = TrafficNet(
-                input_size=input_size,
-                hidden_sizes=hidden_sizes,
-                output_size=output_size
-            )
-            self.model.load_state_dict(state_dict)
+                input_size = state_dict['net.0.weight'].shape[1]
+                hidden_sizes = []
+                layer_idx = 0
+                while f'net.{layer_idx}.weight' in state_dict:
+                    layer_shape = state_dict[f'net.{layer_idx}.weight'].shape
+                    hidden_sizes.append(layer_shape[0])
+                    layer_idx += 2
+                
+                output_size = hidden_sizes[-1]
+                hidden_sizes = hidden_sizes[:-1]
+                
+                print(f"📊 Old model: input={input_size}, hidden={hidden_sizes}, output={output_size}")
+                
+                self.model = TrafficNet(
+                    input_size=input_size,
+                    hidden_sizes=hidden_sizes,
+                    output_size=output_size
+                )
+                self.model.load_state_dict(state_dict)
+                self.model_type = "legacy"
             
             self.model.to(self.device)
             self.model.eval()
-            print(f"✅ Loaded deep learning model on {self.device}")
+            print(f"✅ Loaded {self.model_type} model on {self.device}")
             
         except Exception as e:
             print(f"❌ Error loading deep learning model: {e}")
+            import traceback
+            traceback.print_exc()
             self.model = None
     
     def is_ready(self) -> bool:
@@ -108,36 +174,44 @@ class DeepLearningPredictionService:
         hour: int,
         day_of_week: int,
         is_holiday: bool = False,
-        speed_limit: int = 45
+        speed_limit: int = 45,
+        distance_from_center: float = None,
+        population_density: float = 1.0
     ) -> torch.Tensor:
         """
-        Prepare input features for the model (14 features total)
+        Prepare input features for the lightweight model (8 features)
         
-        Features:
-        1. latitude (normalized)
-        2. longitude (normalized)
-        3. hour (normalized 0-1)
-        4. day_of_week (normalized 0-1)
-        5. is_weekend (binary)
-        6. is_holiday (binary)
-        7. hour_sin (cyclic encoding)
-        8. hour_cos (cyclic encoding)
-        9. speed_limit (normalized)
-        10. distance_from_center (km)
-        11. is_rush_hour (binary)
-        12. is_morning (binary)
-        13. is_afternoon (binary)
-        14. is_evening (binary)
+        Features for lightweight model:
+        1. latitude
+        2. longitude
+        3. hour (0-23)
+        4. day_of_week (0-6)
+        5. is_weekend (0 or 1)
+        6. is_holiday (0 or 1)
+        7. distance_from_center (km)
+        8. population_density (relative scale)
         """
-        # UT Arlington center
-        center_lat, center_lon = 32.7357, -97.1081
+        # Calculate distance from center if not provided
+        if distance_from_center is None:
+            # UT Arlington center
+            center_lat, center_lon = 32.7357, -97.1081
+            distance_from_center = np.sqrt((latitude - center_lat)**2 + (longitude - center_lon)**2) * 111  # km
         
-        # Calculate distance from center
-        distance = np.sqrt((latitude - center_lat)**2 + (longitude - center_lon)**2) * 111  # km
+        # Prepare features
+        is_weekend = 1 if day_of_week >= 5 else 0
         
-        # Cyclic encoding for hour
-        hour_sin = np.sin(2 * np.pi * hour / 24)
-        hour_cos = np.cos(2 * np.pi * hour / 24)
+        features = [
+            latitude,
+            longitude,
+            float(hour),
+            float(day_of_week),
+            float(is_weekend),
+            float(is_holiday),
+            distance_from_center,
+            population_density
+        ]
+        
+        return torch.FloatTensor(features).unsqueeze(0)
         
         # Binary features
         is_weekend = 1 if day_of_week >= 5 else 0
@@ -200,11 +274,18 @@ class DeepLearningPredictionService:
             output = self.model(features)
             predictions = output.cpu().numpy()[0]
         
+        # DEBUG: Log raw model output
+        print(f"🧠 DL Model Raw Output: {predictions}")
+        print(f"   Input features: {features.cpu().numpy()[0]}")
+        print(f"   Parsed: hour={hour}, day={day_of_week}, weekend={day_of_week>=5}, holiday={is_holiday}, lat={latitude:.4f}, lng={longitude:.4f}")
+        
         # Interpret predictions
         # Assuming output: [congestion_level, travel_time_index, average_speed]
         congestion_level = float(predictions[0])
         travel_time_index = float(predictions[1]) if len(predictions) > 1 else congestion_level
         average_speed = float(predictions[2]) if len(predictions) > 2 else speed_limit * (1 - congestion_level)
+        
+        print(f"   Parsed: congestion={congestion_level:.3f}, travel_time={travel_time_index:.3f}, speed={average_speed:.1f}")
         
         # Ensure values are in reasonable ranges
         congestion_level = np.clip(congestion_level, 0, 1)
@@ -217,7 +298,7 @@ class DeepLearningPredictionService:
             "average_speed_mph": round(average_speed, 1),
             "congestion_category": self._get_congestion_category(congestion_level),
             "model_type": "deep_learning",
-            "model_name": "TrafficNet",
+            "model_name": "LightweightTrafficNet (PyTorch)" if self.model_type == "lightweight" else "TrafficNet (PyTorch)",
             "timestamp": datetime.now().isoformat()
         }
     

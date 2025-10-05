@@ -1,25 +1,22 @@
-# This file redirects to the actual requirements in backend/
-# Install backend dependencies with: pip install -r backend/requirements.txt
+# Minimal requirements for Render.com deployment
+# Optimized for fast builds and small memory footprint
 
-# Core dependencies for deployment
+# Core API (Fast install)
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
-python-dotenv==1.0.0
-python-multipart==0.0.6
 pydantic==2.5.3
-pydantic-settings==2.1.0
-requests==2.31.0
-httpx==0.26.0
-google-generativeai==0.3.2
-numpy==1.26.3
-pandas==2.1.4
+python-dotenv==1.0.0
+
+# Essential ML (Pre-built wheels available)
+numpy==1.24.3
 scikit-learn==1.3.2
-torch==2.1.2
 joblib==1.3.2
+
+# Utilities
+requests==2.31.0
 holidays==0.35
 
-# Optional: Geographic data processing (may increase build time)
-# osmnx==1.8.1
-# networkx==3.2.1
-# geopandas==0.14.2
-# matplotlib==3.8.2
+# Optional: Uncomment if needed (increases build time)
+# torch==2.1.2
+# pandas==2.1.4
+# google-generativeai==0.3.2
