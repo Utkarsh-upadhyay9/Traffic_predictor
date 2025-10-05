@@ -1,0 +1,34 @@
+{
+  "congestion": {
+    "mae": 0.040542049577754445,
+    "rmse": 0.0959659465358614,
+    "r2": 0.9057608669211961,
+    "training_time": 18.23059916496277,
+    "n_estimators": 100,
+    "training_samples": 400000
+  },
+  "vehicle_count": {
+    "mae": 344.7649723695729,
+    "rmse": 664.1318640081022,
+    "r2": 0.9291616752833706,
+    "training_time": 21.20197343826294,
+    "n_estimators": 100,
+    "training_samples": 400000
+  },
+  "average_speed": {
+    "mae": 1.598464142474738,
+    "rmse": 3.5414584402093476,
+    "r2": 0.9231078281196952,
+    "training_time": 17.010764360427856,
+    "n_estimators": 100,
+    "training_samples": 400000
+  },
+  "travel_time_index": {
+    "mae": 0.10110939131308205,
+    "rmse": 0.23972956277441004,
+    "r2": 0.9059440400075266,
+    "training_time": 18.64044690132141,
+    "n_estimators": 100,
+    "training_samples": 400000
+  }
+}

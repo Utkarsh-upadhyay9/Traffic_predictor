@@ -1,0 +1,25 @@
+{
+  "features": [
+    "latitude",
+    "longitude",
+    "hour",
+    "day_of_week",
+    "weather_condition",
+    "num_lanes",
+    "speed_limit",
+    "distance_from_center_km",
+    "is_weekend",
+    "is_rush_hour",
+    "hour_sin",
+    "hour_cos",
+    "day_sin",
+    "day_cos",
+    "location_type_encoded",
+    "rush_hour_lanes",
+    "weekend_distance"
+  ],
+  "version": "4.1.0",
+  "trained_date": "2025-10-05 01:19:34.253871",
+  "data_source": "texas_synthetic_10M",
+  "training_samples": 500000
+}

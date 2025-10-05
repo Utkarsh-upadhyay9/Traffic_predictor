@@ -70,6 +70,7 @@ ml/models/*_full_location_model.pkl
 ml/models/vehicle_count_full_location_model.pkl
 ml/models/congestion_full_location_model.pkl
 ml/models/travel_time_full_location_model.pkl
+ml/models/*_real_data_model.pkl
 
 # Keep simple models (smaller)
 !ml/models/*_simple_location_model.pkl
@@ -77,3 +78,4 @@ ml/models/travel_time_full_location_model.pkl
 
 # Large datasets
 ml/real_world_traffic_data.csv
+ml/traffic_data_10M/

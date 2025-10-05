@@ -1,7 +1,7 @@
 """
 Train ML Models on Large-Scale Real Traffic Data
-Supports datasets from 100K to 1B+ samples
-Uses incremental learning and distributed training
+Supports datasets from 100K to 10M+ samples
+Uses incremental learning and efficient training
 """
 import pandas as pd
 import numpy as np
@@ -11,7 +11,6 @@ from sklearn.metrics import mean_absolute_error, r2_score, mean_squared_error
 import joblib
 from pathlib import Path
 import json
-import pyarrow.parquet as pq
 import logging
 import time
 from typing import List
@@ -29,38 +28,52 @@ class LargeScaleTrainer:
     
     def __init__(self):
         self.ml_dir = Path(__file__).parent
-        self.data_dir = self.ml_dir / "traffic_data"
+        self.data_dir = self.ml_dir / "traffic_data_10M"
         self.models_dir = self.ml_dir / "models"
         self.models_dir.mkdir(exist_ok=True)
         
         self.chunk_size = 100000  # Process 100K samples at a time
         
     def load_data_incrementally(self) -> pd.DataFrame:
-        """Load all parquet files efficiently"""
+        """Load CSV files efficiently with memory management"""
         logger.info("="*80)
         logger.info("📂 Loading Traffic Data")
         logger.info("="*80)
         
-        parquet_files = sorted(list(self.data_dir.glob("traffic_data_batch_*.parquet")))
+        csv_files = sorted(list(self.data_dir.glob("traffic_batch_*.csv")))
         
-        if not parquet_files:
-            logger.error("❌ No parquet files found!")
-            logger.info("💡 Run fetch_real_traffic_data.py first to collect data")
+        if not csv_files:
+            logger.error("❌ No CSV files found!")
+            logger.info("💡 Run generate_10M_samples.py first to generate data")
             return None
         
-        logger.info(f"Found {len(parquet_files)} batch files")
+        logger.info(f"Found {len(csv_files)} batch files")
         
-        # Load all batches
+        # Load a subset for efficient training (2 million samples = 20 batches)
+        # This is sufficient for high-quality models with better memory usage
+        max_batches = min(20, len(csv_files))
+        logger.info(f"Loading first {max_batches} batches for training ({max_batches * 100000:,} samples)")
+        
+        # Load batches
         dfs = []
         total_size_mb = 0
         
-        for i, file in enumerate(parquet_files):
+        for i in range(max_batches):
+            file = csv_files[i]
             size_mb = file.stat().st_size / (1024 * 1024)
             total_size_mb += size_mb
-            logger.info(f"  Loading batch {i+1}/{len(parquet_files)}: {file.name} ({size_mb:.1f} MB)")
+            logger.info(f"  Loading batch {i+1}/{max_batches}: {file.name} ({size_mb:.1f} MB)")
             
-            df = pd.read_parquet(file)
-            dfs.append(df)
+            try:
+                df = pd.read_csv(file, engine='python')
+                dfs.append(df)
+            except Exception as e:
+                logger.warning(f"  ⚠️  Skipping {file.name} due to error: {e}")
+                continue
+        
+        if not dfs:
+            logger.error("❌ No data loaded!")
+            return None
         
         # Combine
         combined_df = pd.concat(dfs, ignore_index=True)
@@ -75,40 +88,38 @@ class LargeScaleTrainer:
         logger.info("\n🔧 Engineering Features")
         logger.info("="*80)
         
-        # Core features
+        # Core features from our generated dataset
         feature_columns = [
             'latitude',
             'longitude',
             'hour',
             'day_of_week',
-            'num_roads',
-            'total_lanes',
-            'avg_speed_limit',
-            'primary_roads',
-            'residential_roads',
-            'motorway_roads',
+            'weather_condition',
+            'num_lanes',
+            'speed_limit',
+            'distance_from_center_km',
         ]
         
         X = df[feature_columns].copy()
         
+        # Add features that already exist in the dataset
+        X['is_weekend'] = df['is_weekend']
+        X['is_rush_hour'] = df['is_rush_hour']
+        
         # Add engineered features
         logger.info("  Adding time-based features...")
-        X['is_weekend'] = (df['day_of_week'] >= 5).astype(int)
-        X['is_rush_hour'] = ((df['hour'] >= 6) & (df['hour'] <= 9) | 
-                             (df['hour'] >= 16) & (df['hour'] <= 19)).astype(int)
         X['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
         X['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
         X['day_sin'] = np.sin(2 * np.pi * df['day_of_week'] / 7)
         X['day_cos'] = np.cos(2 * np.pi * df['day_of_week'] / 7)
         
         logger.info("  Adding spatial features...")
-        X['road_density'] = df['num_roads'] / (df['total_lanes'] + 1)
-        X['motorway_ratio'] = df['motorway_roads'] / (df['num_roads'] + 1)
-        X['residential_ratio'] = df['residential_roads'] / (df['num_roads'] + 1)
+        X['location_type_encoded'] = df['location_type'].astype('category').cat.codes
         
         logger.info("  Adding interaction features...")
-        X['rush_hour_lanes'] = X['is_rush_hour'] * X['total_lanes']
-        X['weekend_motorway'] = X['is_weekend'] * X['motorway_roads']
+        X['rush_hour_lanes'] = X['is_rush_hour'] * X['num_lanes']
+        X['weekend_distance'] = X['is_weekend'] * X['distance_from_center_km']
+        X['weather_speed'] = df['weather_condition'] * X['speed_limit']
         
         # Targets
         y_congestion = df['congestion_level']
@@ -198,10 +209,10 @@ class LargeScaleTrainer:
         model_info = {}
         
         target_configs = {
-            'congestion': {'y': targets['congestion'], 'n_estimators': 300},
-            'vehicle_count': {'y': targets['vehicles'], 'n_estimators': 250},
-            'average_speed': {'y': targets['speed'], 'n_estimators': 250},
-            'travel_time_index': {'y': targets['travel_time'], 'n_estimators': 200},
+            'congestion': {'y': targets['congestion'], 'n_estimators': 200},
+            'vehicle_count': {'y': targets['vehicles'], 'n_estimators': 150},
+            'average_speed': {'y': targets['speed'], 'n_estimators': 150},
+            'travel_time_index': {'y': targets['travel_time'], 'n_estimators': 150},
         }
         
         for target_name, config in target_configs.items():
